@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "cairn": {
+      "command": "npx",
+      "args": ["-y", "cairn", "mcp"],
+      "env": {
+        "CAIRN_HOME": "${workspaceFolder}/.cairn"
+      }
+    }
+  }
+}
