@@ -4,7 +4,7 @@ description: Transcribing, displaying and animating captions
 version: 4.0.513
 ---
 
-All captions must be processed in JSON. The captions must use the [`Caption`](https://www.remotion.dev/docs/captions/caption.md) type which is the following:
+All captions must be processed in JSON. The captions must use the [`Caption`](https://www.remotion.dev/docs/captions/caption) type which is the following:
 
 ```ts
 import type { Caption } from "@remotion/captions";
