@@ -30,8 +30,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*.local
+# env files (can opt-in for committing if needed)
+.env*
 
 # vercel
 .vercel
@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cairn local state
+/.cairn/
+/.cursor/mcp.json
+/.mcp.json
+
+# verification skill ephemeral state
+.cursor/skills/verify-cairn/scratch/
+.cursor/skills/verify-cairn/evidence/
