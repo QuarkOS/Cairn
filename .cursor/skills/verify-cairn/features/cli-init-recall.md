@@ -11,8 +11,8 @@
 From a project directory:
 
 ```bash
-npx cairn init --project
-npx cairn recall
+npx --yes @quarkos/cairn init --project
+npx --yes @quarkos/cairn recall
 ```
 
 For verification, point env at the scratch home from `instance.json` instead of `./.cairn`.
@@ -33,4 +33,4 @@ Exit code 0 and a positive belief count proves CLI reads the same store as the A
 
 - `init` without `--project` writes to `~/.cairn` and ignores project cwd — use `--project` or set `CAIRN_HOME` before `init --project`.
 - `recall` does not start the desk; it reads SQLite directly.
-- Published `npx cairn` requires npm publish; in-repo use `node bin/cairn.mjs`.
+- Do not use bare `npx cairn` (that is an unrelated npm package). Prefer `npx --yes @quarkos/cairn` or in-repo `node bin/cairn.mjs`.

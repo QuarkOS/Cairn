@@ -10,7 +10,7 @@
 
 ## How to get to it (user POV)
 
-1. Start Cairn: `npx cairn dev` or the verify `launch.sh`
+1. Start Cairn: `npx --yes @quarkos/cairn dev` or the verify `launch.sh`
 2. Open `http://127.0.0.1:<port>/`
 3. The main column shows **Live beliefs** with count and `recalled <timestamp>`
 

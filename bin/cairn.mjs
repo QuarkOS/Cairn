@@ -19,13 +19,15 @@ function resolveTsxCli() {
 const tsxCli = resolveTsxCli();
 if (!tsxCli) {
   process.stderr.write(
-    "Cairn needs tsx installed. Reinstall with: npm install cairn\n",
+    "Cairn needs tsx installed. Reinstall with: npm install @quarkos/cairn\n",
   );
   process.exit(1);
 }
 
+// Keep the caller's cwd so `init --project` writes into their folder.
+// Module resolution still uses absolute paths under `root`.
 const child = spawn(process.execPath, [tsxCli, entry, ...process.argv.slice(2)], {
-  cwd: root,
+  cwd: process.cwd(),
   stdio: "inherit",
   env: process.env,
 });
