@@ -228,11 +228,11 @@ describe("persistence + paths", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("seeds an empty db and round-trips asserts", () => {
+  it("creates an empty db without demo facts", () => {
     const dbPath = join(root, "cairn.db");
     const now = Date.parse("2026-08-24T12:00:00.000Z");
     const loaded = loadStoreFromDb(dbPath, now);
-    assert.ok(loaded.facts.length >= 10);
+    assert.equal(loaded.facts.length, 0);
 
     const req: CairnRequest = {
       kind: "assert",

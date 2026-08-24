@@ -8,7 +8,7 @@ import { handleRequest } from "../lib/cairn/store";
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "cairn",
-    version: "0.4.1",
+    version: "0.4.2",
   });
 
   server.tool(

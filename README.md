@@ -4,7 +4,7 @@ Cairn is an append-only store of typed facts. An agent asserts a fact in one ses
 
 Facts persist in SQLite. The desk is optional. The work happens on JSON and MCP.
 
-The npm package is **`@quarkos/cairn`**. Never run bare `npx cairn` — that resolves Adam Terlson's unrelated 2017 React Native styling package (`cairn@0.8.0`).
+The npm package is **`@quarkos/cairn`**. Never run bare `npx cairn`. That resolves Adam Terlson's unrelated 2017 React Native styling package (`cairn@0.8.0`).
 
 ## Install
 
@@ -15,7 +15,7 @@ npx --yes @quarkos/cairn init --project
 npx --yes @quarkos/cairn dev
 ```
 
-`init --project` creates `.cairn/cairn.db`, wires Cursor (`.cursor/mcp.json`), and wires Pi + Claude Code (`.mcp.json`). The shared `.mcp.json` stores an absolute `CAIRN_HOME`. It does not use Cursor-only `${workspaceFolder}`.
+`init --project` creates `.cairn/cairn.db` (empty), wires Cursor (`.cursor/mcp.json`), and wires Pi + Claude Code (`.mcp.json`). The shared `.mcp.json` stores an absolute `CAIRN_HOME`. It does not use Cursor-only `${workspaceFolder}`. Pass `--demo` if you want the sample beliefs on a fresh install.
 
 Global install without a project file:
 
@@ -27,8 +27,9 @@ npx --yes @quarkos/cairn init
 
 | Command | Purpose |
 | --- | --- |
-| `cairn init --project` | Database + Cursor + Pi/Claude MCP config in the current repo |
-| `cairn dev` | Desk and API on port 4721 |
+| `cairn init --project` | Empty database + Cursor + Pi/Claude MCP config in the current repo |
+| `cairn init --project --demo` | Same, plus sample beliefs (the desk reset endpoint loads the same set) |
+| `cairn dev` | Desk and API on port 4721, using this project's `.cairn` |
 | `cairn start` | Production server after `npm run build` |
 | `cairn mcp` | Stdio MCP server for agents |
 | `cairn recall` | Print live beliefs as JSON |
@@ -134,7 +135,21 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 npm publish --access public
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.1`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.2`.
+
+## Where the database lives
+
+`CAIRN_HOME` is the one directory that holds `cairn.db` and `canvas.json`.
+
+Resolution, in order:
+
+1. `CAIRN_HOME` if you set it
+2. `./.cairn` in the directory you ran the command from, if that folder exists
+3. `~/.cairn`
+
+`cairn dev` and `cairn start` run Next.js from the installed package, not from your project. They still pin `CAIRN_HOME` using the rule above, so a throwaway project that ran `init --project` talks to **that** project's database without exporting anything. Set `CAIRN_HOME` only when you want a different store.
+
+`CAIRN_DB_PATH` overrides just the SQLite file.
 
 ## Development
 
@@ -144,7 +159,7 @@ npm test
 npm run dev
 ```
 
-Database path resolves to `./.cairn/cairn.db` when that directory exists, otherwise `~/.cairn/cairn.db`. Override with `CAIRN_HOME` or `CAIRN_DB_PATH`.
+Database path resolves as described in [Where the database lives](#where-the-database-lives). `npm run dev` from a clone uses the same rule with the repo as cwd.
 
 ## Release trailer (Remotion)
 
