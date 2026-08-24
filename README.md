@@ -137,13 +137,15 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 
 ## Publish
 
+First publish of `@quarkos/cairn` needs the `@quarkos` org on npmjs.com and `--access public` (otherwise `PUT …/@quarkos%2fcairn` returns 404).
+
 ```bash
 npm publish --access public
 # then prefer the scoped name everywhere:
 CAIRN_NPX_SPEC=@quarkos/cairn npx --yes @quarkos/cairn init --project
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.0`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.0`. The `bin.cairn` entry must be `bin/cairn.mjs` (no `./` prefix) with a `#!/usr/bin/env node` shebang and the executable bit set, or npm drops the bin on publish.
 
 ## Development
 

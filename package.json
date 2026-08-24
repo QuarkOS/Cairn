@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "cairn": "./bin/cairn.mjs"
+    "cairn": "bin/cairn.mjs"
   },
   "files": [
     "bin",
