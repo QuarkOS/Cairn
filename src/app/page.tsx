@@ -381,11 +381,14 @@ export default function DeskPage() {
                 Point your agent at Cairn over MCP. From a project directory:
               </p>
               <pre className="overflow-x-auto rounded-md border border-rule bg-paper p-2 font-mono text-[11px] text-ink">
-                {`npx cairn init --project\nnpx cairn mcp`}
+                {`npx --yes github:QuarkOS/Cairn init --project\nnpx --yes github:QuarkOS/Cairn mcp`}
               </pre>
               <p>
-                Cursor and Pi configs are written for you. The desk talks to the
-                same <code className="font-mono">POST /api/cairn</code> contract.
+                Cursor gets <code className="font-mono">.cursor/mcp.json</code>.
+                Pi and Claude Code get <code className="font-mono">.mcp.json</code>{" "}
+                with an absolute <code className="font-mono">CAIRN_HOME</code>. The
+                desk talks to the same{" "}
+                <code className="font-mono">POST /api/cairn</code> contract.
               </p>
             </div>
           ) : null}
