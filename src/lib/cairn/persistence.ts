@@ -20,19 +20,11 @@ CREATE TABLE IF NOT EXISTS stamps (
 );
 `;
 
-export function loadStoreFromDb(dbPath: string, nowMs: number): Store {
+export function loadStoreFromDb(dbPath: string, _nowMs: number): Store {
   mkdirSync(dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
   try {
     db.exec(SCHEMA);
-    const factCount = (
-      db.prepare("SELECT COUNT(*) AS n FROM facts").get() as { n: number }
-    ).n;
-    if (factCount === 0) {
-      const seeded = seedStore(nowMs);
-      writeStore(db, seeded);
-      return cloneStore(seeded);
-    }
     return readStore(db);
   } finally {
     db.close();

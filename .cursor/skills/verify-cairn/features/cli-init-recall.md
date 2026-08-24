@@ -2,9 +2,10 @@
 
 ## Sub-features
 
-- `node bin/cairn.mjs init --project` — create `.cairn/`, seed DB, write MCP configs
+- `node bin/cairn.mjs init --project` — create `.cairn/`, empty DB, write MCP configs
+- `node bin/cairn.mjs init --project --demo` — same, plus sample beliefs
 - `node bin/cairn.mjs recall` — print live beliefs JSON to stdout
-- `CAIRN_HOME` / `CAIRN_DB_PATH` env overrides
+- `CAIRN_HOME` / `CAIRN_DB_PATH` env overrides. `dev`/`start` pin `CAIRN_HOME` from the directory you invoked the command in.
 
 ## How to get to it (user POV)
 

@@ -1,12 +1,17 @@
-import { loadCanvas, saveCanvas, type CanvasLayout } from "@/lib/cairn/canvas";
+import { loadCanvas, saveCanvas } from "@/lib/cairn/canvas";
+import { emptyCanvas, isCanvasLayout } from "@/lib/cairn/canvas-layout";
 import { resolveCairnPaths } from "@/lib/cairn/paths";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET() {
-  const { canvasPath } = resolveCairnPaths();
-  const layout = loadCanvas(canvasPath);
-  return Response.json(layout);
+  try {
+    const { canvasPath } = resolveCairnPaths();
+    return Response.json(loadCanvas(canvasPath));
+  } catch {
+    return Response.json(emptyCanvas());
+  }
 }
 
 export async function PUT(request: Request) {
@@ -30,20 +35,12 @@ export async function PUT(request: Request) {
     );
   }
 
-  const { canvasPath } = resolveCairnPaths();
-  saveCanvas(canvasPath, body);
-  return Response.json(body);
-}
-
-function isCanvasLayout(value: unknown): value is CanvasLayout {
-  if (typeof value !== "object" || value === null) return false;
-  const record = value as Record<string, unknown>;
-  if (record.version !== 1) return false;
-  if (typeof record.pods !== "object" || record.pods === null) return false;
-  for (const pod of Object.values(record.pods as Record<string, unknown>)) {
-    if (typeof pod !== "object" || pod === null) return false;
-    const p = pod as Record<string, unknown>;
-    if (typeof p.x !== "number" || typeof p.y !== "number") return false;
+  try {
+    const { canvasPath } = resolveCairnPaths();
+    saveCanvas(canvasPath, body);
+    return Response.json(body);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save canvas";
+    return Response.json({ error: message }, { status: 500 });
   }
-  return true;
 }

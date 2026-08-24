@@ -16,7 +16,7 @@ CAIRN_DB_PATH="$CAIRN_HOME/cairn.db"
 export CAIRN_HOME CAIRN_DB_PATH
 
 cd "$RUN_DIR/project"
-node "$REPO_ROOT/bin/cairn.mjs" init --project >/dev/null
+node "$REPO_ROOT/bin/cairn.mjs" init --project --demo >/dev/null
 
 cd "$REPO_ROOT"
 if ! npm run build >/dev/null 2>&1; then

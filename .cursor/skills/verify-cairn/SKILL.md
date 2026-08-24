@@ -24,7 +24,7 @@ chmod +x .cursor/skills/verify-cairn/scripts/*.sh
 This:
 
 1. Creates `.cursor/skills/verify-cairn/scratch/<run-id>/` with an isolated `CAIRN_HOME`
-2. Runs `node bin/cairn.mjs init --project` against that home (via env override)
+2. Runs `node bin/cairn.mjs init --project --demo` against that home (via env override)
 3. Runs `npm run build`, then `npm run start -- --port 14721` in tmux session `cairn-verify-<run-id>`
 4. Waits until `GET http://127.0.0.1:14721/api/cairn` succeeds
 5. Writes `.cursor/skills/verify-cairn/scratch/instance.json` (session name, port, paths)
