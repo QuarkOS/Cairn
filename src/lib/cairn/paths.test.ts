@@ -1,27 +1,30 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { after, describe, it } from "node:test";
 
 import { resolveCairnPaths, resolveDeskHome, resolveInvocationCwd } from "./paths";
 
 describe("resolveInvocationCwd", () => {
+  const callerCwd = resolve(tmpdir(), "my-app");
+  const packageRoot = resolve(tmpdir(), "npx-cache", "@quarkos", "cairn");
+
   it("keeps the caller cwd when it is not the package root", () => {
     const cwd = resolveInvocationCwd({
-      cwd: "/tmp/my-app",
-      packageRoot: "/npx/cache/@quarkos/cairn",
+      cwd: callerCwd,
+      packageRoot,
     });
-    assert.equal(cwd, "/tmp/my-app");
+    assert.equal(cwd, callerCwd);
   });
 
   it("uses INIT_CWD when cwd has already switched to the package", () => {
     const cwd = resolveInvocationCwd({
-      cwd: "/npx/cache/@quarkos/cairn",
-      packageRoot: "/npx/cache/@quarkos/cairn",
-      initCwd: "/tmp/my-app",
+      cwd: packageRoot,
+      packageRoot,
+      initCwd: callerCwd,
     });
-    assert.equal(cwd, "/tmp/my-app");
+    assert.equal(cwd, callerCwd);
   });
 });
 
