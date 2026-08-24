@@ -6,9 +6,9 @@
  */
 export function deskNextEnv(
   script: "dev" | "start",
-  baseEnv: NodeJS.ProcessEnv = process.env,
+  baseEnv: Record<string, string | undefined> = process.env,
 ): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...baseEnv };
+  const env = { ...baseEnv } as NodeJS.ProcessEnv;
   if (script === "dev") {
     env.WATCHPACK_POLLING = "true";
     env.CHOKIDAR_USEPOLLING = "true";
