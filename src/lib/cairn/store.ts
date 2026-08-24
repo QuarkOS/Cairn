@@ -1,56 +1,40 @@
 import { execute } from "./execute";
-import { loadStoreFromDb, resetDb, saveStoreToDb } from "./persistence";
+import {
+  resetDb,
+  withStoreSnapshot,
+  withStoreTransaction,
+} from "./persistence";
 import { resolveCairnPaths } from "./paths";
-import type { CairnRequest, CairnResponse, Store } from "./model";
-
-let store: Store | null = null;
-let dbPath: string | null = null;
-let chain: Promise<unknown> = Promise.resolve();
-
-function exclusive<T>(fn: () => T): Promise<T> {
-  const run = chain.then(() => fn());
-  chain = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
-}
-
-function ensureLoaded(nowMs: number): { store: Store; dbPath: string } {
-  const paths = resolveCairnPaths();
-  if (store === null || dbPath !== paths.dbPath) {
-    dbPath = paths.dbPath;
-    store = loadStoreFromDb(paths.dbPath, nowMs);
-  }
-  return { store, dbPath: paths.dbPath };
-}
-
-function commit(next: Store, path: string): void {
-  store = next;
-  saveStoreToDb(path, next);
-}
+import type { CairnRequest, CairnResponse } from "./model";
 
 export function handleRequest(
   request: CairnRequest,
   nowMs = Date.now(),
 ): Promise<CairnResponse> {
-  return exclusive(() => {
-    const loaded = ensureLoaded(nowMs);
-    const out = execute(loaded.store, request, nowMs);
-    if (out.store !== loaded.store) {
-      commit(out.store, loaded.dbPath);
-    }
-    return out.response;
-  });
+  const { dbPath } = resolveCairnPaths();
+  if (request.kind === "recall") {
+    return Promise.resolve(
+      withStoreSnapshot(dbPath, (store) =>
+        execute(store, request, nowMs).response,
+      ),
+    );
+  }
+
+  return Promise.resolve(
+    withStoreTransaction(dbPath, (store) => {
+      const out = execute(store, request, nowMs);
+      return { store: out.store, value: out.response };
+    }),
+  );
 }
 
 export function resetStore(nowMs = Date.now()): Promise<CairnResponse> {
-  return exclusive(() => {
-    const paths = resolveCairnPaths();
-    dbPath = paths.dbPath;
-    store = resetDb(paths.dbPath, nowMs);
-    return execute(store, { kind: "recall", query: { kind: "all" } }, nowMs).response;
-  });
+  const { dbPath } = resolveCairnPaths();
+  const seeded = resetDb(dbPath, nowMs);
+  return Promise.resolve(
+    execute(seeded, { kind: "recall", query: { kind: "all" } }, nowMs)
+      .response,
+  );
 }
 
 export function getDbPath(): string {

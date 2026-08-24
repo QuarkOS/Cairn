@@ -4,18 +4,21 @@ Cairn is an append-only store of typed facts. An agent asserts a fact in one ses
 
 Facts persist in SQLite. The desk is optional. The work happens on JSON and MCP.
 
-The npm package is **`@quarkos/cairn`**. Never run bare `npx cairn`. That resolves Adam Terlson's unrelated 2017 React Native styling package (`cairn@0.8.0`).
+The npm package is **`@quarkos/cairn`**. Always use the scoped package name; the unscoped `cairn` name is an unrelated 2017 React Native styling package.
 
 ## Install
 
 From any empty project folder (Node 20+):
 
 ```bash
+npx --yes @quarkos/cairn --help
 npx --yes @quarkos/cairn init --project
 npx --yes @quarkos/cairn dev
 ```
 
-`init --project` creates `.cairn/cairn.db` (empty), wires Cursor (`.cursor/mcp.json`), and wires Pi + Claude Code (`.mcp.json`). The shared `.mcp.json` stores an absolute `CAIRN_HOME`. It does not use Cursor-only `${workspaceFolder}`. Pass `--demo` if you want the sample beliefs on a fresh install.
+The first command warms the npx cache. `init --project` creates `.cairn/cairn.db` (empty), wires Cursor (`.cursor/mcp.json`), and wires Pi + Claude Code (`.mcp.json`). The shared `.mcp.json` stores an absolute `CAIRN_HOME`. It does not use Cursor-only `${workspaceFolder}`. `--demo` seeds only an empty store and refuses to overwrite existing facts.
+
+On an ephemeral VM, run the scoped help command once before starting an agent so the MCP process does not pay the package download during client startup. Run project init again for each new workspace, then reload the client's MCP configuration. Claude Code may ask for the expected project-server approval; Pi must be installed in the VM.
 
 Global install without a project file:
 
@@ -28,7 +31,7 @@ npx --yes @quarkos/cairn init
 | Command | Purpose |
 | --- | --- |
 | `cairn init --project` | Empty database + Cursor + Pi/Claude MCP config in the current repo |
-| `cairn init --project --demo` | Same, plus sample beliefs (the desk reset endpoint loads the same set) |
+| `cairn init --project --demo` | Seed sample beliefs only when the project store is empty |
 | `cairn dev` | Desk and API on port 4721, using this project's `.cairn` |
 | `cairn start` | Production server after `npm run build` |
 | `cairn mcp` | Stdio MCP server for agents |

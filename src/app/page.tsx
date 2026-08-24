@@ -381,7 +381,7 @@ export default function DeskPage() {
                 Point your agent at Cairn over MCP. From a project directory:
               </p>
               <pre className="overflow-x-auto rounded-md border border-rule bg-paper p-2 font-mono text-[11px] text-ink">
-                {`npx --yes @quarkos/cairn init --project\nnpx --yes @quarkos/cairn mcp`}
+                {`npx --yes @quarkos/cairn --help\nnpx --yes @quarkos/cairn init --project`}
               </pre>
               <p>
                 Cursor gets <code className="font-mono">.cursor/mcp.json</code>.
