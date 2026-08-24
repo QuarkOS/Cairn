@@ -149,7 +149,10 @@ export function detectInstallSpec(packageRoot: string): string {
  * Defaults to the install source of this Cairn tree. Override with
  * CAIRN_NPX_SPEC when you need a different package for MCP.
  */
-export function npxInstallSpec(packageRoot: string, env = process.env): string {
+export function npxInstallSpec(
+  packageRoot: string,
+  env: Record<string, string | undefined> = process.env,
+): string {
   const override = env.CAIRN_NPX_SPEC?.trim();
   if (override) return override;
   return detectInstallSpec(packageRoot);
