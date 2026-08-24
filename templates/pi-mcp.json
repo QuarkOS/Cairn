@@ -2,7 +2,7 @@
   "mcpServers": {
     "cairn": {
       "command": "npx",
-      "args": ["-y", "github:QuarkOS/Cairn", "mcp"],
+      "args": ["-y", "@quarkos/cairn", "mcp"],
       "env": {
         "CAIRN_HOME": "__CAIRN_HOME__"
       }

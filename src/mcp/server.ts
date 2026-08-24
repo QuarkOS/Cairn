@@ -2,13 +2,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { parseCairnRequest } from "@/lib/cairn/parse";
-import { handleRequest } from "@/lib/cairn/store";
+import { parseCairnRequest } from "../lib/cairn/parse";
+import { handleRequest } from "../lib/cairn/store";
 
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "cairn",
-    version: "0.4.0",
+    version: "0.4.1",
   });
 
   server.tool(
