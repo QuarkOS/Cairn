@@ -145,7 +145,7 @@ npm publish --access public
 CAIRN_NPX_SPEC=@quarkos/cairn npx --yes @quarkos/cairn init --project
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.0`. The `bin.cairn` entry must be `bin/cairn.mjs` (no `./` prefix) with a `#!/usr/bin/env node` shebang and the executable bit set, or npm drops the bin on publish.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.0`. Keep `bin.cairn` as `bin/cairn.mjs` (no `./`), with `#!/usr/bin/env node` and the executable bit, so npm does not drop the bin on publish.
 
 ## Development
 
