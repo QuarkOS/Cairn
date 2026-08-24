@@ -33,7 +33,7 @@ npx --yes @quarkos/cairn init
 | `cairn mcp` | Stdio MCP server for agents |
 | `cairn recall` | Print live beliefs as JSON |
 
-Invoke via `npx --yes @quarkos/cairn …`, or `node bin/cairn.mjs` from a clone. Override the MCP install specifier with `CAIRN_NPX_SPEC` (for example `github:QuarkOS/Cairn`) when you need a non-registry install.
+Invoke via `npx --yes @quarkos/cairn …`, `npx --yes github:QuarkOS/Cairn …`, or `node bin/cairn.mjs` from a clone. `init` writes MCP `npx` args from that install source (`@quarkos/cairn`, `github:QuarkOS/Cairn`, or the local checkout path). Override with `CAIRN_NPX_SPEC` when MCP should use a different package.
 
 ## Agent contract
 
@@ -86,7 +86,7 @@ After `init --project`, `.cursor/mcp.json` includes a `cairn` server. Cursor may
 }
 ```
 
-Reload MCP in Cursor (or restart) so the tools appear.
+Reload MCP in Cursor (or restart) so the tools appear. After `npx --yes github:QuarkOS/Cairn init --project`, the `args` entry is `github:QuarkOS/Cairn` instead of `@quarkos/cairn`.
 
 ### Claude Code
 
@@ -106,7 +106,7 @@ The same init writes project-scoped `.mcp.json`. Claude Code reads that file at 
 }
 ```
 
-`CAIRN_HOME` is an absolute path written at init time. Claude Code does not understand Cursor's `${workspaceFolder}`.
+`CAIRN_HOME` is an absolute path written at init time. Claude Code does not understand Cursor's `${workspaceFolder}`. The `args` package matches whatever install source ran `init`.
 
 You can also add the server with:
 
@@ -134,7 +134,7 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 npm publish --access public
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.1`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.2`.
 
 ## Development
 
