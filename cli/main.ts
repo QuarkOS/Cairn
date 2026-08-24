@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
+import { npxInstallSpec } from "./npx-install-spec";
 
 import { resolveDeskHome } from "../src/lib/cairn/paths";
 
@@ -50,17 +51,8 @@ Package: @quarkos/cairn
   process.exit(1);
 }
 
-/**
- * Specifier passed to `npx` in generated MCP configs.
- * Defaults to the published scoped package. Override with CAIRN_NPX_SPEC
- * (e.g. github:QuarkOS/Cairn) for unreleased or fork installs.
- */
-function npxInstallSpec(): string {
-  return process.env.CAIRN_NPX_SPEC?.trim() || "@quarkos/cairn";
-}
-
 function npxPackageArgs(): string[] {
-  return ["-y", npxInstallSpec()];
+  return ["-y", npxInstallSpec(root)];
 }
 
 function ensureDir(path: string): void {
