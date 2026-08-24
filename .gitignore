@@ -48,3 +48,7 @@ next-env.d.ts
 # verification skill ephemeral state
 .cursor/skills/verify-cairn/scratch/
 .cursor/skills/verify-cairn/evidence/
+
+# Local desk runtime staging (CLI)
+.cairn-desk-staging/
+node_modules/.cairn-desk-hermetic

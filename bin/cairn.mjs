@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const entry = join(root, "cli", "main.ts");
+const tsconfig = join(root, "tsconfig.json");
 
 function resolveTsxCli() {
   try {
@@ -25,11 +26,16 @@ if (!tsxCli) {
 }
 
 // Keep the caller's cwd so `init --project` writes into their folder.
-// Module resolution still uses absolute paths under `root`.
-const child = spawn(process.execPath, [tsxCli, entry, ...process.argv.slice(2)], {
-  cwd: process.cwd(),
-  stdio: "inherit",
-  env: process.env,
-});
+// Pass the package tsconfig so path aliases resolve when cwd is not the package root
+// (npx / MCP clients).
+const child = spawn(
+  process.execPath,
+  [tsxCli, "--tsconfig", tsconfig, entry, ...process.argv.slice(2)],
+  {
+    cwd: process.cwd(),
+    stdio: "inherit",
+    env: process.env,
+  },
+);
 
 child.on("exit", (code) => process.exit(code ?? 0));

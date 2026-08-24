@@ -1,9 +1,18 @@
 #!/usr/bin/env node
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  writeFileSync,
+  existsSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  cpSync,
+  realpathSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -13,6 +22,10 @@ type McpServerConfig = {
   command: string;
   args: string[];
   env: Record<string, string>;
+};
+
+type PackageJson = {
+  dependencies?: Record<string, string>;
 };
 
 function usage(): never {
@@ -33,11 +46,11 @@ Package: @quarkos/cairn
 
 /**
  * Specifier passed to `npx` in generated MCP configs.
- * Prefer the scoped npm name once it resolves; otherwise GitHub so
- * init works before the first `npm publish`.
+ * Defaults to the published scoped package. Override with CAIRN_NPX_SPEC
+ * (e.g. github:QuarkOS/Cairn) for unreleased or fork installs.
  */
 function npxInstallSpec(): string {
-  return process.env.CAIRN_NPX_SPEC?.trim() || "github:QuarkOS/Cairn";
+  return process.env.CAIRN_NPX_SPEC?.trim() || "@quarkos/cairn";
 }
 
 function npxPackageArgs(): string[] {
@@ -72,7 +85,7 @@ function mergeMcpServer(
   writeJson(path, { ...existing, mcpServers });
 }
 
-function cursorMcpConfig(projectRoot: string): McpServerConfig {
+function cursorMcpConfig(_projectRoot: string): McpServerConfig {
   return {
     command: "npx",
     args: [...npxPackageArgs(), "mcp"],
@@ -128,8 +141,95 @@ async function cmdInit(args: string[]): Promise<void> {
   }
 }
 
+/**
+ * Turbopack pins its workspace to this package (see next.config.ts). When npm
+ * hoists next/react/react-dom to a parent node_modules, resolution fails and
+ * /api/cairn 500s. Materialize those packages inside the package tree once.
+ */
+function deskRuntimeIsHermetic(): boolean {
+  try {
+    const rootReal = realpathSync(root);
+    for (const name of ["next", "react", "react-dom"] as const) {
+      const pkgJson = join(root, "node_modules", name, "package.json");
+      if (!existsSync(pkgJson)) return false;
+      const resolved = realpathSync(dirname(pkgJson));
+      if (!resolved.startsWith(rootReal + "/") && resolved !== rootReal) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensureDeskRuntime(): void {
+  if (deskRuntimeIsHermetic()) return;
+
+  const pkg = JSON.parse(
+    readFileSync(join(root, "package.json"), "utf8"),
+  ) as PackageJson;
+  const deps = pkg.dependencies ?? {};
+  if (!deps.next || !deps.react || !deps["react-dom"]) {
+    throw new Error(
+      "Package is missing next/react/react-dom dependency versions",
+    );
+  }
+
+  const staging = join(root, ".cairn-desk-staging");
+  rmSync(staging, { recursive: true, force: true });
+  ensureDir(staging);
+  // Install the full production tree so Turbopack's pinned package root can
+  // resolve better-sqlite3 and the rest without walking to a parent hoist.
+  writeJson(join(staging, "package.json"), {
+    name: "@quarkos/cairn-desk-runtime",
+    version: "0.0.0",
+    private: true,
+    dependencies: deps,
+  });
+
+  process.stderr.write(
+    "Cairn: preparing a local Next.js runtime for the desk (one-time)…\n",
+  );
+  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+  const result = spawnSync(
+    npm,
+    ["install", "--omit=dev", "--no-fund", "--no-audit"],
+    {
+      cwd: staging,
+      stdio: "inherit",
+      env: process.env,
+    },
+  );
+  if (result.status !== 0) {
+    rmSync(staging, { recursive: true, force: true });
+    throw new Error("Failed to install the local Next.js desk runtime");
+  }
+
+  const destNm = join(root, "node_modules");
+  ensureDir(destNm);
+  const stagingNm = join(staging, "node_modules");
+  for (const name of readdirSync(stagingNm)) {
+    if (name.startsWith(".")) continue;
+    const from = join(stagingNm, name);
+    const to = join(destNm, name);
+    rmSync(to, { recursive: true, force: true });
+    cpSync(from, to, { recursive: true });
+  }
+
+  rmSync(staging, { recursive: true, force: true });
+  writeFileSync(join(destNm, ".cairn-desk-hermetic"), `${Date.now()}\n`);
+
+  if (!deskRuntimeIsHermetic()) {
+    throw new Error("Desk runtime install finished but modules are still missing");
+  }
+}
+
 function runNext(script: "dev" | "start", extraArgs: string[]): void {
-  const nextBin = require.resolve("next/dist/bin/next");
+  ensureDeskRuntime();
+  const nextBin = require.resolve("next/dist/bin/next", {
+    paths: [root],
+  });
   const child = spawn(
     process.execPath,
     [nextBin, script, "--hostname", "0.0.0.0", ...extraArgs],

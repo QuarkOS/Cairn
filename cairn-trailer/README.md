@@ -34,7 +34,7 @@ Assert · Recall · Retract
 Desk + Agent Canvas
 SQLite · JSON API · MCP
 
-npx --yes github:QuarkOS/Cairn init --project
+npx --yes @quarkos/cairn init --project
 ```
 
 Built with [Remotion](https://www.remotion.dev).

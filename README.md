@@ -4,18 +4,11 @@ Cairn is an append-only store of typed facts. An agent asserts a fact in one ses
 
 Facts persist in SQLite. The desk is optional. The work happens on JSON and MCP.
 
-The npm package is **`@quarkos/cairn`**. Do not run bare `npx cairn`. That hits Adam Terlson's unrelated 2017 React Native styling package (`cairn@0.8.0`).
+The npm package is **`@quarkos/cairn`**. Never run bare `npx cairn` — that resolves Adam Terlson's unrelated 2017 React Native styling package (`cairn@0.8.0`).
 
 ## Install
 
-From any empty project folder (Node 20+). Until `@quarkos/cairn` is on the registry, install from GitHub:
-
-```bash
-npx --yes github:QuarkOS/Cairn init --project
-npx --yes github:QuarkOS/Cairn dev
-```
-
-After the scoped package is published:
+From any empty project folder (Node 20+):
 
 ```bash
 npx --yes @quarkos/cairn init --project
@@ -27,7 +20,7 @@ npx --yes @quarkos/cairn dev
 Global install without a project file:
 
 ```bash
-npx --yes github:QuarkOS/Cairn init
+npx --yes @quarkos/cairn init
 ```
 
 ## Commands
@@ -40,7 +33,7 @@ npx --yes github:QuarkOS/Cairn init
 | `cairn mcp` | Stdio MCP server for agents |
 | `cairn recall` | Print live beliefs as JSON |
 
-Invoke via `npx --yes github:QuarkOS/Cairn …` (or `@quarkos/cairn` after publish), or `node bin/cairn.mjs` from a clone.
+Invoke via `npx --yes @quarkos/cairn …`, or `node bin/cairn.mjs` from a clone. Override the MCP install specifier with `CAIRN_NPX_SPEC` (for example `github:QuarkOS/Cairn`) when you need a non-registry install.
 
 ## Agent contract
 
@@ -84,7 +77,7 @@ After `init --project`, `.cursor/mcp.json` includes a `cairn` server. Cursor may
   "mcpServers": {
     "cairn": {
       "command": "npx",
-      "args": ["-y", "github:QuarkOS/Cairn", "mcp"],
+      "args": ["-y", "@quarkos/cairn", "mcp"],
       "env": {
         "CAIRN_HOME": "${workspaceFolder}/.cairn"
       }
@@ -93,7 +86,7 @@ After `init --project`, `.cursor/mcp.json` includes a `cairn` server. Cursor may
 }
 ```
 
-Reload MCP in Cursor (or restart) so the tools appear. Override the install specifier with `CAIRN_NPX_SPEC=@quarkos/cairn` when the scoped package is on npm.
+Reload MCP in Cursor (or restart) so the tools appear.
 
 ### Claude Code
 
@@ -104,7 +97,7 @@ The same init writes project-scoped `.mcp.json`. Claude Code reads that file at 
   "mcpServers": {
     "cairn": {
       "command": "npx",
-      "args": ["-y", "github:QuarkOS/Cairn", "mcp"],
+      "args": ["-y", "@quarkos/cairn", "mcp"],
       "env": {
         "CAIRN_HOME": "/absolute/path/to/your/project/.cairn"
       }
@@ -118,7 +111,7 @@ The same init writes project-scoped `.mcp.json`. Claude Code reads that file at 
 You can also add the server with:
 
 ```bash
-claude mcp add --scope project cairn -- npx -y github:QuarkOS/Cairn mcp
+claude mcp add --scope project cairn -- npx -y @quarkos/cairn mcp
 ```
 
 Then set `CAIRN_HOME` in the generated entry to your project's `.cairn` directory.
@@ -139,11 +132,9 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 
 ```bash
 npm publish --access public
-# then prefer the scoped name everywhere:
-CAIRN_NPX_SPEC=@quarkos/cairn npx --yes @quarkos/cairn init --project
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.0`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.1`.
 
 ## Development
 
