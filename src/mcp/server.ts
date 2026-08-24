@@ -37,7 +37,7 @@ function toolResult(response: CairnResponse) {
 export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cairn",
-    version: "0.4.2",
+    version: "0.4.3",
   }, { instructions: SERVER_INSTRUCTIONS });
 
   server.tool(
