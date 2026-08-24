@@ -31,8 +31,8 @@ type PackageJson = {
   dependencies?: Record<string, string>;
 };
 
-function usage(): never {
-  process.stderr.write(`Usage: cairn <command> [options]
+function usage(stream: NodeJS.WriteStream = process.stdout): void {
+  stream.write(`Usage: cairn <command> [options]
 
 Commands:
   init [--project] [--demo]   Create Cairn home + MCP configs
@@ -48,7 +48,6 @@ Commands:
 
 Package: @quarkos/cairn
 `);
-  process.exit(1);
 }
 
 function npxPackageArgs(): string[] {
@@ -64,23 +63,48 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-function mergeMcpServer(
+type PreparedMcpConfig = {
+  path: string;
+  value: Record<string, unknown>;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readMcpConfig(path: string): Record<string, unknown> {
+  if (!existsSync(path)) return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+  } catch {
+    throw new Error(`Refusing to overwrite invalid JSON in ${path}`);
+  }
+  if (!isRecord(parsed)) {
+    throw new Error(`Refusing to overwrite non-object MCP config in ${path}`);
+  }
+  if ("mcpServers" in parsed && !isRecord(parsed.mcpServers)) {
+    throw new Error(`mcpServers must be an object in ${path}`);
+  }
+  return parsed;
+}
+
+function prepareMcpServer(
   path: string,
   server: McpServerConfig,
-): void {
-  let existing: { mcpServers?: Record<string, unknown> } = {};
-  if (existsSync(path)) {
-    try {
-      existing = JSON.parse(readFileSync(path, "utf8")) as typeof existing;
-    } catch {
-      existing = {};
-    }
-  }
-  const mcpServers = {
-    ...(existing.mcpServers ?? {}),
-    cairn: server,
+): PreparedMcpConfig {
+  const existing = readMcpConfig(path);
+  return {
+    path,
+    value: {
+      ...existing,
+      mcpServers: {
+        ...(isRecord(existing.mcpServers) ? existing.mcpServers : {}),
+        cairn: server,
+      },
+    },
   };
-  writeJson(path, { ...existing, mcpServers });
 }
 
 function cursorMcpConfig(_projectRoot: string): McpServerConfig {
@@ -104,45 +128,78 @@ function portableMcpConfig(cairnHome: string): McpServerConfig {
   };
 }
 
+function parseInitArgs(args: string[]): { project: boolean; demo: boolean } {
+  let project = false;
+  let demo = false;
+  for (const arg of args) {
+    if (arg === "--project") {
+      project = true;
+    } else if (arg === "--demo") {
+      demo = true;
+    } else {
+      throw new Error(`Unknown init option: ${arg}`);
+    }
+  }
+  return { project, demo };
+}
+
 async function cmdInit(args: string[]): Promise<void> {
-  const project = args.includes("--project");
-  const demo = args.includes("--demo");
+  const { project, demo } = parseInitArgs(args);
   const cwd = process.cwd();
   const home = project
     ? resolve(cwd, ".cairn")
     : resolve(process.env.CAIRN_HOME?.trim() || join(homedir(), ".cairn"));
 
+  const preparedConfigs: PreparedMcpConfig[] = project
+    ? [
+        prepareMcpServer(join(cwd, ".cursor", "mcp.json"), cursorMcpConfig(cwd)),
+        prepareMcpServer(join(cwd, ".mcp.json"), portableMcpConfig(home)),
+      ]
+    : [
+        prepareMcpServer(
+          join(homedir(), ".config", "mcp", "mcp.json"),
+          portableMcpConfig(home),
+        ),
+      ];
+
   ensureDir(home);
   process.env.CAIRN_HOME = home;
   process.env.CAIRN_DB_PATH = join(home, "cairn.db");
 
+  let liveBeliefCount = 0;
   if (demo) {
-    const { resetStore } = await import("../src/lib/cairn/store");
-    await resetStore();
-  } else {
+    const { seedDbIfEmpty } = await import("../src/lib/cairn/persistence");
+    seedDbIfEmpty(join(home, "cairn.db"), Date.now());
+  }
+  {
     const { handleRequest } = await import("../src/lib/cairn/store");
-    await handleRequest({ kind: "recall", query: { kind: "all" } });
+    const response = await handleRequest({
+      kind: "recall",
+      query: { kind: "all" },
+    });
+    if (response.kind === "recalled") liveBeliefCount = response.beliefs.length;
   }
 
   const demoNote = demo
-    ? `Loaded sample beliefs into ${home}\n`
-    : `Empty store at ${home} (pass --demo for sample beliefs)\n`;
+    ? `Loaded sample beliefs into ${home} (${liveBeliefCount} live beliefs)\n`
+    : `Store ready at ${home} (${liveBeliefCount} live beliefs)\n`;
+
+  for (const prepared of preparedConfigs) {
+    writeJson(prepared.path, prepared.value);
+  }
 
   if (project) {
-    mergeMcpServer(join(cwd, ".cursor", "mcp.json"), cursorMcpConfig(cwd));
-    mergeMcpServer(join(cwd, ".mcp.json"), portableMcpConfig(home));
     process.stdout.write(
       `Initialized project Cairn at ${home}\n` +
         demoNote +
         `Wrote .cursor/mcp.json (Cursor) and .mcp.json (Pi + Claude Code)\n`,
     );
   } else {
-    const globalMcp = join(homedir(), ".config", "mcp", "mcp.json");
-    mergeMcpServer(globalMcp, portableMcpConfig(home));
+    const globalMcp = preparedConfigs[0]?.path;
     process.stdout.write(
       `Initialized global Cairn at ${home}\n` +
         demoNote +
-        `Wrote ${globalMcp}\n`,
+        `Wrote ${globalMcp ?? "global MCP config"}\n`,
     );
   }
 }
@@ -262,26 +319,34 @@ function runNext(script: "dev" | "start", extraArgs: string[]): void {
   child.on("exit", (code) => process.exit(code ?? 0));
 }
 
+function parsePortArgs(args: string[]): string {
+  if (args.length === 0) return "4721";
+  if (args.length !== 2 || args[0] !== "--port") {
+    throw new Error("Only --port <1-65535> is supported for this command");
+  }
+  const port = Number(args[1]);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error("Port must be an integer between 1 and 65535");
+  }
+  return String(port);
+}
+
 function cmdDev(args: string[]): void {
-  const port = args.includes("--port")
-    ? args[args.indexOf("--port") + 1]
-    : "4721";
-  runNext("dev", ["--port", port ?? "4721"]);
+  runNext("dev", ["--port", parsePortArgs(args)]);
 }
 
 function cmdStart(args: string[]): void {
-  const port = args.includes("--port")
-    ? args[args.indexOf("--port") + 1]
-    : "4721";
-  runNext("start", ["--port", port ?? "4721"]);
+  runNext("start", ["--port", parsePortArgs(args)]);
 }
 
-async function cmdMcp(): Promise<void> {
+async function cmdMcp(args: string[]): Promise<void> {
+  if (args.length > 0) throw new Error("mcp does not accept options");
   const { startMcpServer } = await import("../src/mcp/server");
   await startMcpServer();
 }
 
-async function cmdRecall(): Promise<void> {
+async function cmdRecall(args: string[]): Promise<void> {
+  if (args.length > 0) throw new Error("recall does not accept options");
   const { handleRequest } = await import("../src/lib/cairn/store");
   const response = await handleRequest({
     kind: "recall",
@@ -294,6 +359,9 @@ async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
   switch (command) {
     case undefined:
+      usage(process.stderr);
+      process.exitCode = 1;
+      break;
     case "help":
     case "--help":
     case "-h":
@@ -309,14 +377,15 @@ async function main(): Promise<void> {
       cmdStart(args);
       break;
     case "mcp":
-      await cmdMcp();
+      await cmdMcp(args);
       break;
     case "recall":
-      await cmdRecall();
+      await cmdRecall(args);
       break;
     default:
       process.stderr.write(`Unknown command: ${command}\n`);
-      usage();
+      usage(process.stderr);
+      process.exitCode = 1;
   }
 }
 
