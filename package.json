@@ -1,6 +1,6 @@
 {
   "name": "@quarkos/cairn",
-  "version": "0.4.2",
+  "version": "0.4.4",
   "description": "Typed facts that outlive the session. Agents assert, recall, and retract through JSON or MCP.",
   "license": "MIT",
   "type": "module",
