@@ -310,7 +310,7 @@ function runNext(script: "dev" | "start", extraArgs: string[]): void {
   ensureDeskRuntime();
   if (script === "dev") {
     const prepared = prepareNextDevState(root);
-    if (prepared.clearedLock || prepared.clearedTurbopackCache) {
+    if (prepared.clearedDevDir) {
       process.stderr.write(
         `Cairn desk: cleared stale Next dev state (${prepared.reason})\n`,
       );

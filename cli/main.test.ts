@@ -84,13 +84,10 @@ describe("prepareNextDevState", () => {
   it("is a no-op when .next/dev is absent", () => {
     const root = fakePackageRoot();
     const result = prepareNextDevState(root);
-    assert.deepEqual(result, {
-      clearedLock: false,
-      clearedTurbopackCache: false,
-    });
+    assert.deepEqual(result, { clearedDevDir: false });
   });
 
-  it("clears a stale lock and turbopack cache after a dead desk PID", () => {
+  it("removes the whole .next/dev tree after a dead desk PID", () => {
     const root = fakePackageRoot();
     const cacheDir = join(
       root,
@@ -100,7 +97,25 @@ describe("prepareNextDevState", () => {
       "turbopack",
       "v16.3.1-test",
     );
+    const staticCss = join(
+      root,
+      ".next",
+      "dev",
+      "static",
+      "chunks",
+      "src_app_globals_css_torn._.single.css",
+    );
+    const postcssPool = join(
+      root,
+      ".next",
+      "dev",
+      "build",
+      "chunks",
+      "pool_entry-[turbopack-node]_transforms_postcss_ts_torn._.js",
+    );
     mkdirSync(cacheDir, { recursive: true });
+    mkdirSync(dirname(staticCss), { recursive: true });
+    mkdirSync(dirname(postcssPool), { recursive: true });
     writeFileSync(
       join(root, ".next", "dev", "lock"),
       JSON.stringify({
@@ -115,36 +130,34 @@ describe("prepareNextDevState", () => {
       join(cacheDir, "CURRENT"),
       `${JSON.stringify({ max_sequence_number: 0, commit_time: "x" })}\n`,
     );
-    writeFileSync(join(cacheDir, "LOG"), "keep-me-gone");
+    writeFileSync(staticCss, "/* torn globals */\n@invalid");
+    writeFileSync(postcssPool, 'throw new Error("torn postcss");\n');
 
     const result = prepareNextDevState(root);
-    assert.equal(result.clearedLock, true);
-    assert.equal(result.clearedTurbopackCache, true);
+    assert.equal(result.clearedDevDir, true);
     assert.equal(result.reason, "stale-lock");
-    assert.equal(existsSync(join(root, ".next", "dev", "lock")), false);
-    assert.equal(existsSync(join(cacheDir, "CURRENT")), false);
-    assert.equal(existsSync(join(cacheDir, "LOG")), false);
-    assert.equal(existsSync(join(root, ".next", "dev", "cache")), true);
+    assert.equal(existsSync(join(root, ".next", "dev")), false);
+    assert.equal(existsSync(staticCss), false);
+    assert.equal(existsSync(postcssPool), false);
   });
 
-  it("clears a corrupt CURRENT even without a lock file", () => {
+  it("removes leftover .next/dev even when the lock file is already gone", () => {
     const root = fakePackageRoot();
-    const cacheDir = join(
+    const staticCss = join(
       root,
       ".next",
       "dev",
-      "cache",
-      "turbopack",
-      "v16.3.1-test",
+      "static",
+      "chunks",
+      "src_app_globals_css_torn._.single.css",
     );
-    mkdirSync(cacheDir, { recursive: true });
-    writeFileSync(join(cacheDir, "CURRENT"), "");
+    mkdirSync(dirname(staticCss), { recursive: true });
+    writeFileSync(staticCss, "/* torn */\n@invalid-css-{{{{");
 
     const result = prepareNextDevState(root);
-    assert.equal(result.clearedLock, false);
-    assert.equal(result.clearedTurbopackCache, true);
-    assert.equal(result.reason, "corrupt-cache");
-    assert.equal(existsSync(join(cacheDir, "CURRENT")), false);
+    assert.equal(result.clearedDevDir, true);
+    assert.equal(result.reason, "previous-dev");
+    assert.equal(existsSync(join(root, ".next", "dev")), false);
   });
 
   it("leaves state alone when the lock PID is still alive", () => {
@@ -172,10 +185,7 @@ describe("prepareNextDevState", () => {
     );
 
     const result = prepareNextDevState(root);
-    assert.deepEqual(result, {
-      clearedLock: false,
-      clearedTurbopackCache: false,
-    });
+    assert.deepEqual(result, { clearedDevDir: false });
     assert.equal(readFileSync(join(cacheDir, "CURRENT"), "utf8"), current);
     assert.equal(existsSync(join(root, ".next", "dev", "lock")), true);
   });

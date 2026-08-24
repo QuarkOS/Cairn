@@ -1,17 +1,12 @@
 /**
- * After a hard kill, Next/Turbopack can leave `.next/dev/lock` and a corrupt
- * `cache/turbopack/.../CURRENT`. The next `cairn dev` then dies (or 500s CSS)
- * while opening the persistence DB. Clear that stale state when the previous
- * desk PID is gone or CURRENT is unreadable.
+ * After a hard kill, Next/Turbopack can leave a torn `.next/dev` tree:
+ * stale `lock`, corrupt `cache/turbopack/.../CURRENT`, half-written
+ * static CSS chunks, and broken PostCSS pool chunks under `build/`.
+ * Clearing only lock/CURRENT is not enough — globals.css PostCSS then 500s
+ * on the next `cairn dev`. Wipe the whole `.next/dev` dir when the previous
+ * desk PID is gone (or there is no live lock holder).
  */
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-} from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 type DevLockInfo = {
@@ -46,91 +41,39 @@ function pidIsAlive(pid: number): boolean {
   }
 }
 
-function turbopackCurrentIsHealthy(cacheRoot: string): boolean {
-  if (!existsSync(cacheRoot)) return true;
-  const stack = [cacheRoot];
-  while (stack.length > 0) {
-    const dir = stack.pop()!;
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      continue;
-    }
-    for (const name of entries) {
-      const full = join(dir, name);
-      let isDir = false;
-      try {
-        isDir = statSync(full).isDirectory();
-      } catch {
-        continue;
-      }
-      if (isDir) {
-        stack.push(full);
-        continue;
-      }
-      if (name !== "CURRENT") continue;
-      try {
-        const raw = readFileSync(full, "utf8").trim();
-        if (!raw) return false;
-        const parsed = JSON.parse(raw) as unknown;
-        if (typeof parsed !== "object" || parsed === null) return false;
-      } catch {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 export type PrepareNextDevStateResult = {
-  clearedLock: boolean;
-  clearedTurbopackCache: boolean;
+  clearedDevDir: boolean;
   reason?: string;
 };
 
 /**
- * Ensure `.next/dev` is safe to reuse for a new `next dev`. Does nothing when
- * another desk PID still holds the lock.
+ * Ensure `.next/dev` is safe for a new `next dev`. Does nothing when another
+ * desk PID still holds the lock. Otherwise removes the entire `.next/dev`
+ * directory so PostCSS/CSS cannot restart from torn artifacts.
  */
 export function prepareNextDevState(packageRoot: string): PrepareNextDevStateResult {
   const devDir = join(packageRoot, ".next", "dev");
   const lockPath = join(devDir, "lock");
-  const cacheRoot = join(devDir, "cache");
-  const result: PrepareNextDevStateResult = {
-    clearedLock: false,
-    clearedTurbopackCache: false,
-  };
+  const result: PrepareNextDevStateResult = { clearedDevDir: false };
 
   if (!existsSync(devDir)) return result;
 
-  const lock = existsSync(lockPath) ? readDevLock(lockPath) : undefined;
+  const hadLock = existsSync(lockPath);
+  const lock = hadLock ? readDevLock(lockPath) : undefined;
   const lockPid = lock?.pid;
   if (typeof lockPid === "number" && pidIsAlive(lockPid)) {
     // Another next dev is running; leave state alone (Next will refuse the lock).
     return result;
   }
 
-  const staleLock = existsSync(lockPath);
-  const unhealthyCache = !turbopackCurrentIsHealthy(cacheRoot);
-  if (!staleLock && !unhealthyCache) return result;
-
-  if (staleLock) {
-    rmSync(lockPath, { force: true });
-    result.clearedLock = true;
+  rmSync(devDir, { recursive: true, force: true });
+  result.clearedDevDir = true;
+  if (hadLock && typeof lockPid === "number") {
+    result.reason = "stale-lock";
+  } else if (hadLock) {
+    result.reason = "invalid-lock";
+  } else {
+    result.reason = "previous-dev";
   }
-  if (unhealthyCache || staleLock) {
-    // Stale lock after SIGKILL often pairs with a half-written turbopack DB.
-    // Drop the cache so the next boot opens a fresh persistence directory.
-    rmSync(cacheRoot, { recursive: true, force: true });
-    mkdirSync(cacheRoot, { recursive: true });
-    result.clearedTurbopackCache = true;
-  }
-
-  result.reason = staleLock
-    ? unhealthyCache
-      ? "stale-lock-and-corrupt-cache"
-      : "stale-lock"
-    : "corrupt-cache";
   return result;
 }
