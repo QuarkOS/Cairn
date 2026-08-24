@@ -15,6 +15,7 @@ import { createRequire } from "node:module";
 import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { npxInstallSpec } from "./npx-install-spec";
+import { deskNextEnv } from "./desk-env";
 
 import { resolveDeskHome } from "../src/lib/cairn/paths";
 
@@ -295,10 +296,8 @@ function runNext(script: "dev" | "start", extraArgs: string[]): void {
     packageRoot: root,
     env: process.env,
   });
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    CAIRN_HOME: paths.home,
-  };
+  const env = deskNextEnv(script, process.env);
+  env.CAIRN_HOME = paths.home;
   if (!process.env.CAIRN_DB_PATH?.trim()) {
     env.CAIRN_DB_PATH = paths.dbPath;
   }

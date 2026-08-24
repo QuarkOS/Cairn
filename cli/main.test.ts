@@ -15,6 +15,7 @@ import { after, describe, it } from "node:test";
 
 import { asAttributeId, asEntityId, asSessionId } from "../src/lib/cairn/brand";
 import { handleRequest } from "../src/lib/cairn/store";
+import { deskNextEnv } from "./desk-env";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const binPath = join(repoRoot, "bin", "cairn.mjs");
@@ -45,6 +46,26 @@ function runCli(cwd: string, args: string[]): Promise<CliResult> {
     child.on("close", (code) => resolveResult({ code, stdout, stderr }));
   });
 }
+
+describe("deskNextEnv", () => {
+  it("forces Watchpack polling for next dev but not next start", () => {
+    const base = { PATH: "/usr/bin", CHOKIDAR_INTERVAL: "250" };
+    const dev = deskNextEnv("dev", base);
+    assert.equal(dev.WATCHPACK_POLLING, "true");
+    assert.equal(dev.CHOKIDAR_USEPOLLING, "true");
+    assert.equal(dev.CHOKIDAR_INTERVAL, "250");
+    assert.equal(dev.PATH, "/usr/bin");
+
+    const start = deskNextEnv("start", base);
+    assert.equal(start.WATCHPACK_POLLING, undefined);
+    assert.equal(start.CHOKIDAR_USEPOLLING, undefined);
+  });
+
+  it("defaults CHOKIDAR_INTERVAL when unset for next dev", () => {
+    const dev = deskNextEnv("dev", { PATH: "/usr/bin" });
+    assert.equal(dev.CHOKIDAR_INTERVAL, "1000");
+  });
+});
 
 describe("CLI safety", () => {
   const roots: string[] = [];
