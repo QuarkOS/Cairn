@@ -107,7 +107,7 @@ async function cmdInit(args: string[]): Promise<void> {
   }
 
   // Seed the DB by loading the store once.
-  const { handleRequest } = await import("../src/lib/cairn/store.ts");
+  const { handleRequest } = await import("../src/lib/cairn/store");
   await handleRequest({ kind: "recall", query: { kind: "all" } });
 
   if (project) {
@@ -157,12 +157,12 @@ function cmdStart(args: string[]): void {
 }
 
 async function cmdMcp(): Promise<void> {
-  const { startMcpServer } = await import("../src/mcp/server.ts");
+  const { startMcpServer } = await import("../src/mcp/server");
   await startMcpServer();
 }
 
 async function cmdRecall(): Promise<void> {
-  const { handleRequest } = await import("../src/lib/cairn/store.ts");
+  const { handleRequest } = await import("../src/lib/cairn/store");
   const response = await handleRequest({
     kind: "recall",
     query: { kind: "all" },
