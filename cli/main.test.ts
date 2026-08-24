@@ -16,6 +16,7 @@ import { after, describe, it } from "node:test";
 import { asAttributeId, asEntityId, asSessionId } from "../src/lib/cairn/brand";
 import { handleRequest } from "../src/lib/cairn/store";
 import { deskNextEnv } from "./desk-env";
+import { prepareNextDevState } from "./prepare-dev-state";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const binPath = join(repoRoot, "bin", "cairn.mjs");
@@ -64,6 +65,119 @@ describe("deskNextEnv", () => {
   it("defaults CHOKIDAR_INTERVAL when unset for next dev", () => {
     const dev = deskNextEnv("dev", { PATH: "/usr/bin" });
     assert.equal(dev.CHOKIDAR_INTERVAL, "1000");
+  });
+});
+
+describe("prepareNextDevState", () => {
+  const roots: string[] = [];
+
+  after(() => {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  });
+
+  function fakePackageRoot(): string {
+    const root = mkdtempSync(join(tmpdir(), "cairn-dev-state-"));
+    roots.push(root);
+    return root;
+  }
+
+  it("is a no-op when .next/dev is absent", () => {
+    const root = fakePackageRoot();
+    const result = prepareNextDevState(root);
+    assert.deepEqual(result, {
+      clearedLock: false,
+      clearedTurbopackCache: false,
+    });
+  });
+
+  it("clears a stale lock and turbopack cache after a dead desk PID", () => {
+    const root = fakePackageRoot();
+    const cacheDir = join(
+      root,
+      ".next",
+      "dev",
+      "cache",
+      "turbopack",
+      "v16.3.1-test",
+    );
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(
+      join(root, ".next", "dev", "lock"),
+      JSON.stringify({
+        pid: 1_000_000_001,
+        port: 4721,
+        hostname: "localhost",
+        appUrl: "http://localhost:4721",
+        startedAt: 0,
+      }),
+    );
+    writeFileSync(
+      join(cacheDir, "CURRENT"),
+      `${JSON.stringify({ max_sequence_number: 0, commit_time: "x" })}\n`,
+    );
+    writeFileSync(join(cacheDir, "LOG"), "keep-me-gone");
+
+    const result = prepareNextDevState(root);
+    assert.equal(result.clearedLock, true);
+    assert.equal(result.clearedTurbopackCache, true);
+    assert.equal(result.reason, "stale-lock");
+    assert.equal(existsSync(join(root, ".next", "dev", "lock")), false);
+    assert.equal(existsSync(join(cacheDir, "CURRENT")), false);
+    assert.equal(existsSync(join(cacheDir, "LOG")), false);
+    assert.equal(existsSync(join(root, ".next", "dev", "cache")), true);
+  });
+
+  it("clears a corrupt CURRENT even without a lock file", () => {
+    const root = fakePackageRoot();
+    const cacheDir = join(
+      root,
+      ".next",
+      "dev",
+      "cache",
+      "turbopack",
+      "v16.3.1-test",
+    );
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(join(cacheDir, "CURRENT"), "");
+
+    const result = prepareNextDevState(root);
+    assert.equal(result.clearedLock, false);
+    assert.equal(result.clearedTurbopackCache, true);
+    assert.equal(result.reason, "corrupt-cache");
+    assert.equal(existsSync(join(cacheDir, "CURRENT")), false);
+  });
+
+  it("leaves state alone when the lock PID is still alive", () => {
+    const root = fakePackageRoot();
+    const cacheDir = join(
+      root,
+      ".next",
+      "dev",
+      "cache",
+      "turbopack",
+      "v16.3.1-test",
+    );
+    mkdirSync(cacheDir, { recursive: true });
+    const current = `${JSON.stringify({ max_sequence_number: 1 })}\n`;
+    writeFileSync(join(cacheDir, "CURRENT"), current);
+    writeFileSync(
+      join(root, ".next", "dev", "lock"),
+      JSON.stringify({
+        pid: process.pid,
+        port: 4721,
+        hostname: "localhost",
+        appUrl: "http://localhost:4721",
+        startedAt: Date.now(),
+      }),
+    );
+
+    const result = prepareNextDevState(root);
+    assert.deepEqual(result, {
+      clearedLock: false,
+      clearedTurbopackCache: false,
+    });
+    assert.equal(readFileSync(join(cacheDir, "CURRENT"), "utf8"), current);
+    assert.equal(existsSync(join(root, ".next", "dev", "lock")), true);
   });
 });
 

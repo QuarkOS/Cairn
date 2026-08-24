@@ -38,4 +38,22 @@ const child = spawn(
   },
 );
 
-child.on("exit", (code) => process.exit(code ?? 0));
+let shuttingDown = false;
+const onSignal = (signal) => {
+  if (shuttingDown || child.pid == null) return;
+  shuttingDown = true;
+  try {
+    process.kill(child.pid, signal);
+  } catch {
+    // Child already gone.
+  }
+};
+process.on("SIGINT", onSignal);
+process.on("SIGTERM", onSignal);
+
+child.on("exit", (code, signal) => {
+  process.off("SIGINT", onSignal);
+  process.off("SIGTERM", onSignal);
+  if (signal) process.exit(1);
+  process.exit(code ?? 0);
+});

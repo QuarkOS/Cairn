@@ -16,6 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { npxInstallSpec } from "./npx-install-spec";
 import { deskNextEnv } from "./desk-env";
+import { prepareNextDevState } from "./prepare-dev-state";
 
 import { resolveDeskHome } from "../src/lib/cairn/paths";
 
@@ -289,8 +290,32 @@ function ensureDeskRuntime(): void {
   }
 }
 
+function forwardSignalToChild(
+  childPid: number,
+  signal: NodeJS.Signals,
+): void {
+  try {
+    // Negative PID = process group (spawned detached on POSIX).
+    process.kill(-childPid, signal);
+  } catch {
+    try {
+      process.kill(childPid, signal);
+    } catch {
+      // Child already gone.
+    }
+  }
+}
+
 function runNext(script: "dev" | "start", extraArgs: string[]): void {
   ensureDeskRuntime();
+  if (script === "dev") {
+    const prepared = prepareNextDevState(root);
+    if (prepared.clearedLock || prepared.clearedTurbopackCache) {
+      process.stderr.write(
+        `Cairn desk: cleared stale Next dev state (${prepared.reason})\n`,
+      );
+    }
+  }
   const paths = resolveDeskHome({
     cwd: process.cwd(),
     packageRoot: root,
@@ -306,6 +331,10 @@ function runNext(script: "dev" | "start", extraArgs: string[]): void {
   const nextBin = require.resolve("next/dist/bin/next", {
     paths: [root],
   });
+  // Detach into its own process group on POSIX so SIGINT/SIGTERM can tear down
+  // next-server + Turbopack postcss workers together (avoids orphaned desks and
+  // half-written `.next/dev/cache` after `kill` of the cairn parent only).
+  const useProcessGroup = process.platform !== "win32";
   const child = spawn(
     process.execPath,
     [nextBin, script, "--hostname", "0.0.0.0", ...extraArgs],
@@ -313,9 +342,31 @@ function runNext(script: "dev" | "start", extraArgs: string[]): void {
       cwd: root,
       stdio: "inherit",
       env,
+      detached: useProcessGroup,
     },
   );
-  child.on("exit", (code) => process.exit(code ?? 0));
+
+  let shuttingDown = false;
+  const onSignal = (signal: NodeJS.Signals): void => {
+    if (shuttingDown || child.pid == null) return;
+    shuttingDown = true;
+    forwardSignalToChild(child.pid, signal);
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+
+  child.on("error", (error) => {
+    process.stderr.write(`cairn: failed to start next ${script}: ${error.message}\n`);
+    process.exit(1);
+  });
+  child.on("exit", (code, signal) => {
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
+    if (signal) {
+      process.exit(1);
+    }
+    process.exit(code ?? 0);
+  });
 }
 
 function parsePortArgs(args: string[]): string {
