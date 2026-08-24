@@ -4,30 +4,43 @@ Cairn is an append-only store of typed facts. An agent asserts a fact in one ses
 
 Facts persist in SQLite. The desk is optional. The work happens on JSON and MCP.
 
+The npm package is **`@quarkos/cairn`**. Do not run bare `npx cairn`. That hits Adam Terlson's unrelated 2017 React Native styling package (`cairn@0.8.0`).
+
 ## Install
 
+From any empty project folder (Node 20+). Until `@quarkos/cairn` is on the registry, install from GitHub:
+
 ```bash
-npx cairn init --project
-npx cairn dev
+npx --yes github:QuarkOS/Cairn init --project
+npx --yes github:QuarkOS/Cairn dev
 ```
 
-`init --project` creates `.cairn/cairn.db`, wires Cursor (`.cursor/mcp.json`), and wires Pi (`.mcp.json`).
+After the scoped package is published:
+
+```bash
+npx --yes @quarkos/cairn init --project
+npx --yes @quarkos/cairn dev
+```
+
+`init --project` creates `.cairn/cairn.db`, wires Cursor (`.cursor/mcp.json`), and wires Pi + Claude Code (`.mcp.json`). The shared `.mcp.json` stores an absolute `CAIRN_HOME`. It does not use Cursor-only `${workspaceFolder}`.
 
 Global install without a project file:
 
 ```bash
-npx cairn init
+npx --yes github:QuarkOS/Cairn init
 ```
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `cairn init --project` | Database + Cursor + Pi MCP config in the current repo |
+| `cairn init --project` | Database + Cursor + Pi/Claude MCP config in the current repo |
 | `cairn dev` | Desk and API on port 4721 |
 | `cairn start` | Production server after `npm run build` |
 | `cairn mcp` | Stdio MCP server for agents |
 | `cairn recall` | Print live beliefs as JSON |
+
+Invoke via `npx --yes github:QuarkOS/Cairn …` (or `@quarkos/cairn` after publish), or `node bin/cairn.mjs` from a clone.
 
 ## Agent contract
 
@@ -62,9 +75,59 @@ curl -s http://127.0.0.1:4721/api/cairn \
 
 ## Harness plugins
 
-**Cursor.** After `cairn init --project`, `.cursor/mcp.json` includes a `cairn` server that runs `npx cairn mcp`.
+### Cursor
 
-**Pi.** The same init writes `.mcp.json` for Pi and other MCP clients. Pi reads `.mcp.json` and host imports such as `cursor`.
+After `init --project`, `.cursor/mcp.json` includes a `cairn` server. Cursor may use `${workspaceFolder}` here:
+
+```json
+{
+  "mcpServers": {
+    "cairn": {
+      "command": "npx",
+      "args": ["-y", "github:QuarkOS/Cairn", "mcp"],
+      "env": {
+        "CAIRN_HOME": "${workspaceFolder}/.cairn"
+      }
+    }
+  }
+}
+```
+
+Reload MCP in Cursor (or restart) so the tools appear. Override the install specifier with `CAIRN_NPX_SPEC=@quarkos/cairn` when the scoped package is on npm.
+
+### Claude Code
+
+The same init writes project-scoped `.mcp.json`. Claude Code reads that file at session start and prompts once to approve project servers.
+
+```json
+{
+  "mcpServers": {
+    "cairn": {
+      "command": "npx",
+      "args": ["-y", "github:QuarkOS/Cairn", "mcp"],
+      "env": {
+        "CAIRN_HOME": "/absolute/path/to/your/project/.cairn"
+      }
+    }
+  }
+}
+```
+
+`CAIRN_HOME` is an absolute path written at init time. Claude Code does not understand Cursor's `${workspaceFolder}`.
+
+You can also add the server with:
+
+```bash
+claude mcp add --scope project cairn -- npx -y github:QuarkOS/Cairn mcp
+```
+
+Then set `CAIRN_HOME` in the generated entry to your project's `.cairn` directory.
+
+### Pi
+
+Pi also reads `.mcp.json`. Init writes the same portable file used for Claude Code: absolute `CAIRN_HOME`, no `${workspaceFolder}`.
+
+Start Pi from the project root (or any client that loads `.mcp.json`) and open `/mcp` to confirm the `cairn` server is listed.
 
 ## Desk and canvas
 
@@ -72,15 +135,15 @@ Open **Desk** (`/`) for the beliefs table and Agent API console. Open **Canvas**
 
 Agents group by `provenance.by` for told facts and by `provenance.session` for observed or inferred facts. Drag pods to arrange the board; layout persists in `.cairn/canvas.json`.
 
-## Publish and install from npm
+## Publish
 
 ```bash
-npm publish
-npx cairn init --project
-npx cairn dev
+npm publish --access public
+# then prefer the scoped name everywhere:
+CAIRN_NPX_SPEC=@quarkos/cairn npx --yes @quarkos/cairn init --project
 ```
 
-The published tarball ships the full desk, canvas, API, CLI, and MCP server. Requires Node 20+.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.0`.
 
 ## Development
 
@@ -100,8 +163,6 @@ A ~30s product trailer for X lives in `cairn-trailer/`. Preview with `npm run de
 cd cairn-trailer
 npx remotion render CairnTrailer out/cairn-v0.4-trailer.mp4
 ```
-
-See `cairn-trailer/x-post-draft.md` for suggested post copy.
 
 ## What Cairn refuses
 
