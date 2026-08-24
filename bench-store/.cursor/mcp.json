@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "cairn": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "github:QuarkOS/Cairn#codex/sol-max-reliability-042",
+        "mcp"
+      ],
+      "env": {
+        "CAIRN_HOME": "/workspace/bench-store/.cairn"
+      }
+    }
+  }
+}
