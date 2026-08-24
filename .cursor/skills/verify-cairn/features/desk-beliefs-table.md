@@ -26,6 +26,6 @@ After an assert (via API or Agent panel), the new attribute must appear without 
 
 ## Gotchas
 
-- Initial beliefs come from seed data when the DB is first created; count is ~10 demo facts.
+- Initial beliefs are empty after `init --project`. Verify launch uses `--demo` so the table starts with ~10 sample facts. `POST /api/cairn/reset` reloads that same demo set.
 - Search matches entity, attribute, value, provenance text, and freshness label.
 - Entity chips overflow into “+N more” when there are more than five entities.

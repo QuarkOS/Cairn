@@ -11,12 +11,12 @@ RUN_DIR="$SKILL_DIR/scratch/$RUN_ID"
 SESSION="cairn-verify-$RUN_ID"
 
 mkdir -p "$RUN_DIR/project"
-CAIRN_HOME="$RUN_DIR/cairn-home"
+cd "$RUN_DIR/project"
+unset CAIRN_HOME CAIRN_DB_PATH
+node "$REPO_ROOT/bin/cairn.mjs" init --project --demo >/dev/null
+CAIRN_HOME="$RUN_DIR/project/.cairn"
 CAIRN_DB_PATH="$CAIRN_HOME/cairn.db"
 export CAIRN_HOME CAIRN_DB_PATH
-
-cd "$RUN_DIR/project"
-node "$REPO_ROOT/bin/cairn.mjs" init --project >/dev/null
 
 cd "$REPO_ROOT"
 if ! npm run build >/dev/null 2>&1; then

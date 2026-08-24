@@ -8,6 +8,30 @@ export type CairnPaths = {
   canvasPath: string;
 };
 
+/**
+ * Directory the user invoked the CLI from.
+ *
+ * `cairn dev` / `cairn start` must spawn Next.js with cwd = the installed
+ * package (so next.config.ts resolves). npm/npx still set INIT_CWD to the
+ * original directory. Prefer that when cwd has already been switched to the
+ * package root.
+ */
+export function resolveInvocationCwd(input: {
+  cwd: string;
+  packageRoot: string;
+  initCwd?: string;
+}): string {
+  const cwd = resolve(input.cwd);
+  const packageRoot = resolve(input.packageRoot);
+  if (cwd !== packageRoot) return cwd;
+  const initCwd = input.initCwd?.trim();
+  if (initCwd) {
+    const resolvedInit = resolve(initCwd);
+    if (resolvedInit !== packageRoot) return resolvedInit;
+  }
+  return cwd;
+}
+
 export function resolveCairnPaths(
   cwd = process.cwd(),
   env: Record<string, string | undefined> = process.env,
@@ -27,4 +51,19 @@ export function resolveCairnPaths(
   const canvasPath = join(home, "canvas.json");
 
   return { home, dbPath, canvasPath };
+}
+
+/** Paths `dev`/`start` should pin on the Next.js child via CAIRN_HOME. */
+export function resolveDeskHome(input: {
+  cwd: string;
+  packageRoot: string;
+  env?: Record<string, string | undefined>;
+}): CairnPaths {
+  const env = input.env ?? {};
+  const invocationCwd = resolveInvocationCwd({
+    cwd: input.cwd,
+    packageRoot: input.packageRoot,
+    initCwd: env.INIT_CWD,
+  });
+  return resolveCairnPaths(invocationCwd, env);
 }

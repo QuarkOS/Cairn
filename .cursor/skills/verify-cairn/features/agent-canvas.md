@@ -27,5 +27,6 @@ Checks HTML contains "Agent canvas", PUT/GET layout API round-trip.
 ## Gotchas
 
 - Layout file lives beside the database under `CAIRN_HOME`.
+- `cairn dev` pins `CAIRN_HOME` to the directory you invoked it from (project `.cairn` after `init --project`).
 - Canvas uses production build in verify mode (port 14721).
-- Empty canvas when no beliefs exist yet.
+- Empty canvas when no beliefs exist yet. Verify launch uses `--demo` so pods appear.

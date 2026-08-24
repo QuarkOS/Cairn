@@ -16,6 +16,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { npxInstallSpec } from "./npx-install-spec";
 
+import { resolveDeskHome } from "../src/lib/cairn/paths";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(root, "package.json"));
 
@@ -33,12 +35,16 @@ function usage(): never {
   process.stderr.write(`Usage: cairn <command> [options]
 
 Commands:
-  init [--project]   Create Cairn home + MCP configs
+  init [--project] [--demo]   Create Cairn home + MCP configs
   dev                Start the desk (next dev) on port 4721
   start              Start production server (next start)
   mcp                Run the stdio MCP server
   recall             Print live beliefs as JSON
   help               Show this help
+
+  CAIRN_HOME is the store directory (cairn.db + canvas.json).
+  dev/start set it from the directory you ran the command in
+  unless it is already set. init --demo loads sample beliefs.
 
 Package: @quarkos/cairn
 `);
@@ -100,6 +106,7 @@ function portableMcpConfig(cairnHome: string): McpServerConfig {
 
 async function cmdInit(args: string[]): Promise<void> {
   const project = args.includes("--project");
+  const demo = args.includes("--demo");
   const cwd = process.cwd();
   const home = project
     ? resolve(cwd, ".cairn")
@@ -107,20 +114,26 @@ async function cmdInit(args: string[]): Promise<void> {
 
   ensureDir(home);
   process.env.CAIRN_HOME = home;
-  if (!process.env.CAIRN_DB_PATH) {
-    process.env.CAIRN_DB_PATH = join(home, "cairn.db");
+  process.env.CAIRN_DB_PATH = join(home, "cairn.db");
+
+  if (demo) {
+    const { resetStore } = await import("../src/lib/cairn/store");
+    await resetStore();
+  } else {
+    const { handleRequest } = await import("../src/lib/cairn/store");
+    await handleRequest({ kind: "recall", query: { kind: "all" } });
   }
 
-  // Seed the DB by loading the store once.
-  const { handleRequest } = await import("../src/lib/cairn/store");
-  await handleRequest({ kind: "recall", query: { kind: "all" } });
+  const demoNote = demo
+    ? `Loaded sample beliefs into ${home}\n`
+    : `Empty store at ${home} (pass --demo for sample beliefs)\n`;
 
   if (project) {
     mergeMcpServer(join(cwd, ".cursor", "mcp.json"), cursorMcpConfig(cwd));
-    // Shared project MCP file for Pi and Claude Code (absolute CAIRN_HOME).
     mergeMcpServer(join(cwd, ".mcp.json"), portableMcpConfig(home));
     process.stdout.write(
       `Initialized project Cairn at ${home}\n` +
+        demoNote +
         `Wrote .cursor/mcp.json (Cursor) and .mcp.json (Pi + Claude Code)\n`,
     );
   } else {
@@ -128,6 +141,7 @@ async function cmdInit(args: string[]): Promise<void> {
     mergeMcpServer(globalMcp, portableMcpConfig(home));
     process.stdout.write(
       `Initialized global Cairn at ${home}\n` +
+        demoNote +
         `Wrote ${globalMcp}\n`,
     );
   }
@@ -219,6 +233,20 @@ function ensureDeskRuntime(): void {
 
 function runNext(script: "dev" | "start", extraArgs: string[]): void {
   ensureDeskRuntime();
+  const paths = resolveDeskHome({
+    cwd: process.cwd(),
+    packageRoot: root,
+    env: process.env,
+  });
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    CAIRN_HOME: paths.home,
+  };
+  if (!process.env.CAIRN_DB_PATH?.trim()) {
+    env.CAIRN_DB_PATH = paths.dbPath;
+  }
+  process.stderr.write(`Cairn desk: CAIRN_HOME=${paths.home}\n`);
+
   const nextBin = require.resolve("next/dist/bin/next", {
     paths: [root],
   });
@@ -228,7 +256,7 @@ function runNext(script: "dev" | "start", extraArgs: string[]): void {
     {
       cwd: root,
       stdio: "inherit",
-      env: process.env,
+      env,
     },
   );
   child.on("exit", (code) => process.exit(code ?? 0));
