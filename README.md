@@ -41,7 +41,15 @@ Invoke via `npx --yes @quarkos/cairn …`, `npx --yes github:QuarkOS/Cairn …`,
 
 ## Agent contract
 
-Send JSON to `POST /api/cairn` or call MCP tools `cairn_recall` and `cairn_request`.
+Send JSON to `POST /api/cairn` or use the typed MCP tools:
+
+| MCP tool | Purpose |
+| --- | --- |
+| `cairn_recall` | Recall live beliefs with freshness and assurance |
+| `cairn_assert` | Append a typed fact with explicit conflict behavior |
+| `cairn_retract` | Retract a live fact without deleting its history |
+
+The write tools expose the complete input schema and take request fields directly. `cairn_request` remains available for clients using the original nested JSON-contract tool.
 
 Every write carries an `idempotencyKey`. Replay the same key and body after a crash and Cairn returns the original result without writing twice.
 
