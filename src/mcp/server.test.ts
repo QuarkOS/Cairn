@@ -9,14 +9,19 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createMcpServer } from "./server";
 
-type ToolResultLike = {
-  content: Array<{ type: string; text?: string }>;
-};
-
-function responseJson(result: ToolResultLike): Record<string, unknown> {
-  const text = result.content.find((item) => item.type === "text")?.text;
+function responseJson(result: unknown): Record<string, unknown> {
+  assert.ok(typeof result === "object" && result !== null);
+  const content = (result as { content?: unknown }).content;
+  assert.ok(Array.isArray(content));
+  const text = content.find(
+    (item): item is { type: "text"; text: string } =>
+      typeof item === "object" &&
+      item !== null &&
+      (item as { type?: unknown }).type === "text" &&
+      typeof (item as { text?: unknown }).text === "string",
+  );
   assert.ok(text);
-  return JSON.parse(text) as Record<string, unknown>;
+  return JSON.parse(text.text) as Record<string, unknown>;
 }
 
 describe("MCP server contract", () => {
