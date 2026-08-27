@@ -9,6 +9,16 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createMcpServer } from "./server";
 
+type ToolResultLike = {
+  content: Array<{ type: string; text?: string }>;
+};
+
+function responseJson(result: ToolResultLike): Record<string, unknown> {
+  const text = result.content.find((item) => item.type === "text")?.text;
+  assert.ok(text);
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
 describe("MCP server contract", () => {
   const roots: string[] = [];
 
@@ -16,7 +26,7 @@ describe("MCP server contract", () => {
     for (const root of roots) rmSync(root, { recursive: true, force: true });
   });
 
-  it("publishes recall guidance and reports rejected requests as errors", async () => {
+  it("publishes typed tools and executes assert/recall/retract", async () => {
     const root = mkdtempSync(join(tmpdir(), "cairn-mcp-"));
     roots.push(root);
     const previousHome = process.env.CAIRN_HOME;
@@ -34,16 +44,43 @@ describe("MCP server contract", () => {
 
       const listed = await client.listTools();
       const recall = listed.tools.find((tool) => tool.name === "cairn_recall");
+      const assertFact = listed.tools.find(
+        (tool) => tool.name === "cairn_assert",
+      );
+      const retract = listed.tools.find(
+        (tool) => tool.name === "cairn_retract",
+      );
+      const compatibility = listed.tools.find(
+        (tool) => tool.name === "cairn_request",
+      );
       assert.ok(recall);
+      assert.ok(assertFact);
+      assert.ok(retract);
+      assert.ok(compatibility);
       assert.match(recall.description ?? "", /task\/session start/i);
-      const schema = JSON.stringify(recall.inputSchema);
-      assert.match(schema, /entity/);
-      assert.match(schema, /attribute/);
-      assert.match(schema, /oneOf|anyOf/);
+      const recallSchema = JSON.stringify(recall.inputSchema);
+      assert.match(recallSchema, /entity/);
+      assert.match(recallSchema, /attribute/);
+      assert.match(recallSchema, /oneOf|anyOf/);
+      const assertSchema = JSON.stringify(assertFact.inputSchema);
+      assert.match(assertSchema, /idempotencyKey/);
+      assert.match(assertSchema, /onConflict/);
+      assert.match(assertSchema, /provenance/);
+      assert.match(assertSchema, /staleAfterSeconds/);
+      const retractSchema = JSON.stringify(retract.inputSchema);
+      assert.match(retractSchema, /factId/);
+      assert.match(retractSchema, /reason/);
+      assert.equal(recall.annotations?.readOnlyHint, true);
+      assert.equal(assertFact.annotations?.idempotentHint, true);
+      assert.equal(assertFact.annotations?.destructiveHint, false);
+      assert.equal(retract.annotations?.idempotentHint, true);
+      assert.equal(retract.annotations?.destructiveHint, true);
       assert.match(client.getInstructions() ?? "", /cairn_recall/);
+      assert.match(client.getInstructions() ?? "", /cairn_assert/);
+      assert.match(client.getInstructions() ?? "", /cairn_retract/);
 
-      const baseRequest = {
-        kind: "assert",
+      const assertion = {
+        idempotencyKey: "first",
         onConflict: "fail",
         draft: {
           entity: "mcp:test",
@@ -54,15 +91,78 @@ describe("MCP server contract", () => {
         },
       };
       const first = await client.callTool({
-        name: "cairn_request",
-        arguments: { request: { ...baseRequest, idempotencyKey: "first" } },
-      });
-      const rejected = await client.callTool({
-        name: "cairn_request",
-        arguments: { request: { ...baseRequest, idempotencyKey: "second" } },
+        name: "cairn_assert",
+        arguments: assertion,
       });
       assert.notEqual(first.isError, true);
+      const firstResponse = responseJson(first);
+      assert.equal(firstResponse.kind, "asserted");
+      const factId = (firstResponse.fact as { id?: unknown } | undefined)?.id;
+      assert.ok(typeof factId === "string");
+
+      const replay = await client.callTool({
+        name: "cairn_assert",
+        arguments: assertion,
+      });
+      assert.notEqual(replay.isError, true);
+      assert.deepEqual(responseJson(replay), firstResponse);
+
+      const rejected = await client.callTool({
+        name: "cairn_assert",
+        arguments: { ...assertion, idempotencyKey: "second" },
+      });
       assert.equal(rejected.isError, true);
+      assert.equal(responseJson(rejected).kind, "rejected");
+
+      const recalled = await client.callTool({
+        name: "cairn_recall",
+        arguments: {
+          query: {
+            kind: "exact",
+            entity: "mcp:test",
+            attribute: "same",
+          },
+        },
+      });
+      const recalledResponse = responseJson(recalled);
+      assert.equal(recalledResponse.kind, "recalled");
+      assert.ok(Array.isArray(recalledResponse.beliefs));
+      assert.equal(recalledResponse.beliefs.length, 1);
+
+      const retracted = await client.callTool({
+        name: "cairn_retract",
+        arguments: {
+          idempotencyKey: "retract-first",
+          factId,
+          reason: "MCP lifecycle test",
+          session: "mcp",
+        },
+      });
+      assert.notEqual(retracted.isError, true);
+      assert.equal(responseJson(retracted).kind, "retracted");
+
+      const after = await client.callTool({
+        name: "cairn_recall",
+        arguments: {
+          query: {
+            kind: "exact",
+            entity: "mcp:test",
+            attribute: "same",
+          },
+        },
+      });
+      const afterResponse = responseJson(after);
+      assert.ok(Array.isArray(afterResponse.beliefs));
+      assert.equal(afterResponse.beliefs.length, 0);
+
+      const compatibleRecall = await client.callTool({
+        name: "cairn_request",
+        arguments: {
+          request: { kind: "recall", query: { kind: "all" } },
+        },
+      });
+      assert.notEqual(compatibleRecall.isError, true);
+      assert.equal(responseJson(compatibleRecall).kind, "recalled");
     } finally {
       await client.close();
       await server.close();
