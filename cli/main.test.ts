@@ -15,6 +15,8 @@ import { after, describe, it } from "node:test";
 
 import { asAttributeId, asEntityId, asSessionId } from "../src/lib/cairn/brand";
 import { handleRequest } from "../src/lib/cairn/store";
+import { deskNextEnv } from "./desk-env";
+import { prepareNextDevState } from "./prepare-dev-state";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const binPath = join(repoRoot, "bin", "cairn.mjs");
@@ -45,6 +47,149 @@ function runCli(cwd: string, args: string[]): Promise<CliResult> {
     child.on("close", (code) => resolveResult({ code, stdout, stderr }));
   });
 }
+
+describe("deskNextEnv", () => {
+  it("forces Watchpack polling for next dev but not next start", () => {
+    const base = { PATH: "/usr/bin", CHOKIDAR_INTERVAL: "250" };
+    const dev = deskNextEnv("dev", base);
+    assert.equal(dev.WATCHPACK_POLLING, "true");
+    assert.equal(dev.CHOKIDAR_USEPOLLING, "true");
+    assert.equal(dev.CHOKIDAR_INTERVAL, "250");
+    assert.equal(dev.PATH, "/usr/bin");
+
+    const start = deskNextEnv("start", base);
+    assert.equal(start.WATCHPACK_POLLING, undefined);
+    assert.equal(start.CHOKIDAR_USEPOLLING, undefined);
+  });
+
+  it("defaults CHOKIDAR_INTERVAL when unset for next dev", () => {
+    const dev = deskNextEnv("dev", { PATH: "/usr/bin" });
+    assert.equal(dev.CHOKIDAR_INTERVAL, "1000");
+  });
+});
+
+describe("prepareNextDevState", () => {
+  const roots: string[] = [];
+
+  after(() => {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  });
+
+  function fakePackageRoot(): string {
+    const root = mkdtempSync(join(tmpdir(), "cairn-dev-state-"));
+    roots.push(root);
+    return root;
+  }
+
+  it("is a no-op when .next/dev is absent", () => {
+    const root = fakePackageRoot();
+    const result = prepareNextDevState(root);
+    assert.deepEqual(result, { clearedDevDir: false });
+  });
+
+  it("removes the whole .next/dev tree after a dead desk PID", () => {
+    const root = fakePackageRoot();
+    const cacheDir = join(
+      root,
+      ".next",
+      "dev",
+      "cache",
+      "turbopack",
+      "v16.3.1-test",
+    );
+    const staticCss = join(
+      root,
+      ".next",
+      "dev",
+      "static",
+      "chunks",
+      "src_app_globals_css_torn._.single.css",
+    );
+    const postcssPool = join(
+      root,
+      ".next",
+      "dev",
+      "build",
+      "chunks",
+      "pool_entry-[turbopack-node]_transforms_postcss_ts_torn._.js",
+    );
+    mkdirSync(cacheDir, { recursive: true });
+    mkdirSync(dirname(staticCss), { recursive: true });
+    mkdirSync(dirname(postcssPool), { recursive: true });
+    writeFileSync(
+      join(root, ".next", "dev", "lock"),
+      JSON.stringify({
+        pid: 1_000_000_001,
+        port: 4721,
+        hostname: "localhost",
+        appUrl: "http://localhost:4721",
+        startedAt: 0,
+      }),
+    );
+    writeFileSync(
+      join(cacheDir, "CURRENT"),
+      `${JSON.stringify({ max_sequence_number: 0, commit_time: "x" })}\n`,
+    );
+    writeFileSync(staticCss, "/* torn globals */\n@invalid");
+    writeFileSync(postcssPool, 'throw new Error("torn postcss");\n');
+
+    const result = prepareNextDevState(root);
+    assert.equal(result.clearedDevDir, true);
+    assert.equal(result.reason, "stale-lock");
+    assert.equal(existsSync(join(root, ".next", "dev")), false);
+    assert.equal(existsSync(staticCss), false);
+    assert.equal(existsSync(postcssPool), false);
+  });
+
+  it("removes leftover .next/dev even when the lock file is already gone", () => {
+    const root = fakePackageRoot();
+    const staticCss = join(
+      root,
+      ".next",
+      "dev",
+      "static",
+      "chunks",
+      "src_app_globals_css_torn._.single.css",
+    );
+    mkdirSync(dirname(staticCss), { recursive: true });
+    writeFileSync(staticCss, "/* torn */\n@invalid-css-{{{{");
+
+    const result = prepareNextDevState(root);
+    assert.equal(result.clearedDevDir, true);
+    assert.equal(result.reason, "previous-dev");
+    assert.equal(existsSync(join(root, ".next", "dev")), false);
+  });
+
+  it("leaves state alone when the lock PID is still alive", () => {
+    const root = fakePackageRoot();
+    const cacheDir = join(
+      root,
+      ".next",
+      "dev",
+      "cache",
+      "turbopack",
+      "v16.3.1-test",
+    );
+    mkdirSync(cacheDir, { recursive: true });
+    const current = `${JSON.stringify({ max_sequence_number: 1 })}\n`;
+    writeFileSync(join(cacheDir, "CURRENT"), current);
+    writeFileSync(
+      join(root, ".next", "dev", "lock"),
+      JSON.stringify({
+        pid: process.pid,
+        port: 4721,
+        hostname: "localhost",
+        appUrl: "http://localhost:4721",
+        startedAt: Date.now(),
+      }),
+    );
+
+    const result = prepareNextDevState(root);
+    assert.deepEqual(result, { clearedDevDir: false });
+    assert.equal(readFileSync(join(cacheDir, "CURRENT"), "utf8"), current);
+    assert.equal(existsSync(join(root, ".next", "dev", "lock")), true);
+  });
+});
 
 describe("CLI safety", () => {
   const roots: string[] = [];

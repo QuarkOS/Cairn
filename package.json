@@ -1,6 +1,6 @@
 {
   "name": "@quarkos/cairn",
-  "version": "0.4.2",
+  "version": "0.4.4",
   "description": "Typed facts that outlive the session. Agents assert, recall, and retract through JSON or MCP.",
   "license": "MIT",
   "type": "module",
@@ -43,9 +43,9 @@
     "quarkos"
   ],
   "scripts": {
-    "dev": "next dev --port 4721 --hostname 0.0.0.0",
+    "dev": "node bin/cairn.mjs dev",
     "build": "next build",
-    "start": "next start --port 4721 --hostname 0.0.0.0",
+    "start": "node bin/cairn.mjs start",
     "lint": "eslint",
     "test": "tsx --test src/lib/cairn/*.test.ts src/mcp/*.test.ts cli/*.test.ts",
     "cairn": "node bin/cairn.mjs",

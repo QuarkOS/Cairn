@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: packageRoot,
   },
+  // Linux hosts often cap fs.inotify.max_user_instances at 128. Turbopack's
+  // native watcher can exhaust that and crash (or 500) the desk. Poll instead.
+  // Watchpack still needs WATCHPACK_POLLING from `cairn dev` (see cli/main.ts).
+  watchOptions: {
+    pollIntervalMs: 1000,
+  },
   serverExternalPackages: ["better-sqlite3"],
 };
 
