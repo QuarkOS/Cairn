@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import type { Fact, Retraction, Stamp, Store } from "./model";
 import { seedStore } from "./seed";
@@ -45,8 +46,11 @@ export function withStoreTransaction<T>(
   try {
     const transaction = db.transaction(() => {
       const current = readStore(db);
+      // Keep an untouched snapshot so a callback cannot bypass the invariant
+      // by mutating the object it received before returning it.
+      const previous = cloneStore(current);
       const result = mutate(current);
-      if (result.store !== current) replaceStore(db, result.store);
+      appendStore(db, previous, result.store);
       return result.value;
     });
     return transaction.immediate();
@@ -58,7 +62,10 @@ export function withStoreTransaction<T>(
 export function saveStoreToDb(dbPath: string, store: Store): void {
   const db = openDb(dbPath);
   try {
-    const transaction = db.transaction(() => replaceStore(db, store));
+    const transaction = db.transaction(() => {
+      const current = readStore(db);
+      appendStore(db, current, store);
+    });
     transaction.immediate();
   } finally {
     db.close();
@@ -67,10 +74,16 @@ export function saveStoreToDb(dbPath: string, store: Store): void {
 
 export function resetDb(dbPath: string, nowMs: number): Store {
   const seeded = seedStore(nowMs);
-  return withStoreTransaction(dbPath, () => ({
-    store: seeded,
-    value: cloneStore(seeded),
-  }));
+  const db = openDb(dbPath);
+  try {
+    const transaction = db.transaction(() => {
+      replaceStore(db, seeded);
+      return cloneStore(seeded);
+    });
+    return transaction.immediate();
+  } finally {
+    db.close();
+  }
 }
 
 export function seedDbIfEmpty(dbPath: string, nowMs: number): Store {
@@ -104,6 +117,67 @@ function replaceStore(db: Database.Database, store: Store): void {
   writeStore(db, store);
 }
 
+function appendStore(
+  db: Database.Database,
+  previous: Store,
+  next: Store,
+): void {
+  validateAppendOnly("facts", previous.facts, next.facts, (fact) => fact.id);
+  validateAppendOnly(
+    "retractions",
+    previous.retractions,
+    next.retractions,
+    (retraction) => retraction.factId,
+  );
+  validateAppendOnly("stamps", previous.stamps, next.stamps, (stamp) => stamp.key);
+
+  writeStoreSuffix(db, previous, next);
+}
+
+function validateAppendOnly<T>(
+  table: string,
+  previous: T[],
+  next: T[],
+  keyOf: (entry: T) => string,
+): void {
+  if (next.length < previous.length) {
+    throw appendOnlyError(table, "an existing entry was removed");
+  }
+
+  for (let index = 0; index < previous.length; index += 1) {
+    if (!isDeepStrictEqual(previous[index], next[index])) {
+      throw appendOnlyError(table, "an existing entry was changed or reordered");
+    }
+  }
+
+  const existingKeys = new Set(previous.map(keyOf));
+  const appendedKeys = new Set<string>();
+  for (const entry of next.slice(previous.length)) {
+    const key = keyOf(entry);
+    if (existingKeys.has(key) || appendedKeys.has(key)) {
+      throw appendOnlyError(table, `the append reuses existing key ${key}`);
+    }
+    appendedKeys.add(key);
+  }
+}
+
+function appendOnlyError(table: string, reason: string): Error {
+  return new Error(`Append-only invariant violation in ${table}: ${reason}`);
+}
+
+function writeStoreSuffix(
+  db: Database.Database,
+  previous: Store,
+  next: Store,
+): void {
+  const suffix: Store = {
+    facts: next.facts.slice(previous.facts.length),
+    retractions: next.retractions.slice(previous.retractions.length),
+    stamps: next.stamps.slice(previous.stamps.length),
+  };
+  writeStore(db, suffix);
+}
+
 function writeStore(db: Database.Database, store: Store): void {
   const insertFact = db.prepare(
     "INSERT INTO facts (id, body) VALUES (@id, @body)",
@@ -131,15 +205,17 @@ function writeStore(db: Database.Database, store: Store): void {
 
 function readStore(db: Database.Database): Store {
   const facts = (
-    db.prepare("SELECT body FROM facts").all() as { body: string }[]
+    db.prepare("SELECT body FROM facts ORDER BY rowid").all() as { body: string }[]
   ).map((row) => JSON.parse(row.body) as Fact);
 
   const retractions = (
-    db.prepare("SELECT body FROM retractions").all() as { body: string }[]
+    db.prepare("SELECT body FROM retractions ORDER BY rowid").all() as {
+      body: string;
+    }[]
   ).map((row) => JSON.parse(row.body) as Retraction);
 
   const stamps = (
-    db.prepare("SELECT body FROM stamps").all() as { body: string }[]
+    db.prepare("SELECT body FROM stamps ORDER BY rowid").all() as { body: string }[]
   ).map((row) => JSON.parse(row.body) as Stamp);
 
   return { facts, retractions, stamps };
