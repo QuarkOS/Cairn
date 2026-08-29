@@ -102,7 +102,7 @@ Reload MCP in Cursor (or restart) so the tools appear. After `npx --yes github:Q
 
 ### Claude Code
 
-The same init writes project-scoped `.mcp.json`. Claude Code reads that file at session start and prompts once to approve project servers.
+The same init writes project-scoped `.mcp.json`. Claude Code reads that file at session start and prompts once to approve project servers. On this checkout, see `CLAUDE.md` for the agent rule and `DEMO.md` for a two-session walkthrough. Init is still the local first step. `.mcp.json` is gitignored because it stores an absolute `CAIRN_HOME`.
 
 ```json
 {
