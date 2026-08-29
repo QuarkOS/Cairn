@@ -1,5 +1,8 @@
 # Cairn
 
+[![GitHub stars](https://img.shields.io/github/stars/QuarkOS/Cairn?style=social)](https://github.com/QuarkOS/Cairn)
+[![npm version](https://img.shields.io/npm/v/%40quarkos%2Fcairn)](https://www.npmjs.com/package/@quarkos/cairn)
+
 Cairn is an append-only store of typed facts. An agent asserts a fact in one session and recalls it, with a freshness verdict, at the start of the next.
 
 Facts persist in SQLite. The desk is optional. The work happens on JSON and MCP.
@@ -102,7 +105,7 @@ Reload MCP in Cursor (or restart) so the tools appear. After `npx --yes github:Q
 
 ### Claude Code
 
-The same init writes project-scoped `.mcp.json`. Claude Code reads that file at session start and prompts once to approve project servers.
+The same init writes project-scoped `.mcp.json`. Claude Code reads that file at session start and prompts once to approve project servers. On this checkout, see `CLAUDE.md` for the agent rule and `DEMO.md` for a two-session walkthrough. Init is still the local first step. `.mcp.json` is gitignored because it stores an absolute `CAIRN_HOME`.
 
 ```json
 {
@@ -146,7 +149,7 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 npm publish --access public
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.4`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.5`.
 
 ## Where the database lives
 
