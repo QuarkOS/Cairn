@@ -1,5 +1,8 @@
 # Cairn
 
+[![GitHub stars](https://img.shields.io/github/stars/QuarkOS/Cairn?style=social)](https://github.com/QuarkOS/Cairn)
+[![npm version](https://img.shields.io/npm/v/%40quarkos%2Fcairn)](https://www.npmjs.com/package/@quarkos/cairn)
+
 Cairn is an append-only store of typed facts. An agent asserts a fact in one session and recalls it, with a freshness verdict, at the start of the next.
 
 Facts persist in SQLite. The desk is optional. The work happens on JSON and MCP.
@@ -146,7 +149,7 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 npm publish --access public
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.4`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.5`.
 
 ## Where the database lives
 

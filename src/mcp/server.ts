@@ -111,7 +111,7 @@ export function createMcpServer(): McpServer {
   const server = new McpServer(
     {
       name: "cairn",
-      version: "0.4.4",
+      version: "0.4.5",
     },
     { instructions: SERVER_INSTRUCTIONS },
   );
