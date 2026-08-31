@@ -33,20 +33,51 @@ type PackageJson = {
   dependencies?: Record<string, string>;
 };
 
+const storeModesHelp = `Stores (pick one — agents only see the CAIRN_HOME they are pointed at):
+
+  Shared store — one database for a chief of staff / every agent
+    npx --yes @quarkos/cairn init
+    npx --yes @quarkos/cairn init --shared
+    Creates ~/.cairn (or $CAIRN_HOME). Point a second MCP client at that
+    same directory. Do not run init --project in each repo if they should
+    share facts.
+
+  Project store — one database per repo
+    npx --yes @quarkos/cairn init --project
+    Creates ./.cairn. Other agents cannot see these facts unless their
+    MCP env CAIRN_HOME is this directory.
+
+  Point a second MCP client at an existing store (no second database):
+    env CAIRN_HOME=/path/to/store npx -y @quarkos/cairn mcp
+`;
+
 function usage(stream: NodeJS.WriteStream = process.stdout): void {
   stream.write(`Usage: cairn <command> [options]
 
 Commands:
-  init [--project] [--demo]   Create Cairn home + MCP configs
+  init [--project | --shared] [--demo]   Create a store and MCP configs
   dev                Start the desk (next dev) on port 4721
   start              Start production server (next start)
   mcp                Run the stdio MCP server
   recall             Print live beliefs as JSON
   help               Show this help
 
-  CAIRN_HOME is the store directory (cairn.db + canvas.json).
-  dev/start set it from the directory you ran the command in
-  unless it is already set. init --demo loads sample beliefs.
+${storeModesHelp}
+CAIRN_HOME holds cairn.db and canvas.json. init --demo seeds an empty store.
+dev/start pin CAIRN_HOME from the directory you ran the command in unless
+it is already set.
+
+Package: @quarkos/cairn
+`);
+}
+
+function initUsage(stream: NodeJS.WriteStream = process.stdout): void {
+  stream.write(`Usage: cairn init [--project | --shared] [--demo]
+
+${storeModesHelp}
+After shared init, CAIRN_HOME is ~/.cairn (or the path init printed).
+After project init, CAIRN_HOME is /absolute/path/to/repo/.cairn.
+--demo seeds sample beliefs only when that store is empty.
 
 Package: @quarkos/cairn
 `);
@@ -132,25 +163,39 @@ function portableMcpConfig(cairnHome: string): McpServerConfig {
 
 function parseInitArgs(args: string[]): { project: boolean; demo: boolean } {
   let project = false;
+  let shared = false;
   let demo = false;
   for (const arg of args) {
     if (arg === "--project") {
       project = true;
+    } else if (arg === "--shared") {
+      shared = true;
     } else if (arg === "--demo") {
       demo = true;
     } else {
       throw new Error(`Unknown init option: ${arg}`);
     }
   }
+  if (project && shared) {
+    throw new Error(
+      "Use either --project (per-repo ./.cairn) or --shared (~/.cairn), not both",
+    );
+  }
   return { project, demo };
 }
 
 async function cmdInit(args: string[]): Promise<void> {
+  if (args.includes("--help") || args.includes("-h")) {
+    initUsage();
+    return;
+  }
+
   const { project, demo } = parseInitArgs(args);
   const cwd = process.cwd();
-  const home = project
-    ? resolve(cwd, ".cairn")
-    : resolve(process.env.CAIRN_HOME?.trim() || join(homedir(), ".cairn"));
+  const sharedHome = resolve(
+    process.env.CAIRN_HOME?.trim() || join(homedir(), ".cairn"),
+  );
+  const home = project ? resolve(cwd, ".cairn") : sharedHome;
 
   const preparedConfigs: PreparedMcpConfig[] = project
     ? [
@@ -191,17 +236,32 @@ async function cmdInit(args: string[]): Promise<void> {
   }
 
   if (project) {
+    const splitNote =
+      existsSync(join(sharedHome, "cairn.db")) && resolve(home) !== sharedHome
+        ? `Note: a shared store already exists at ${sharedHome}. This --project store is a separate database.\n`
+        : "";
     process.stdout.write(
-      `Initialized project Cairn at ${home}\n` +
+      `Initialized project store at ${home}\n` +
+        `This database is only this repo. Other agents will not see these facts unless their MCP env CAIRN_HOME is ${home}.\n` +
+        `Shared store (one chief of staff across repos): npx --yes @quarkos/cairn init\n` +
+        splitNote +
         demoNote +
         `Wrote .cursor/mcp.json (Cursor) and .mcp.json (Pi + Claude Code)\n`,
     );
   } else {
     const globalMcp = preparedConfigs[0]?.path;
+    const projectHome = resolve(cwd, ".cairn");
+    const splitNote =
+      existsSync(join(projectHome, "cairn.db")) && projectHome !== home
+        ? `Note: ./.cairn already exists in this directory. Shared init used ${home} instead; those are separate databases.\n`
+        : "";
     process.stdout.write(
-      `Initialized global Cairn at ${home}\n` +
+      `Initialized shared store at ${home}\n` +
+        `This is one database for a chief of staff / every agent you point here. Set another MCP client's CAIRN_HOME to ${home}. Do not run init --project unless you want a separate per-repo database.\n` +
+        `  env CAIRN_HOME=${home} npx -y @quarkos/cairn mcp\n` +
+        splitNote +
         demoNote +
-        `Wrote ${globalMcp ?? "global MCP config"}\n`,
+        `Wrote ${globalMcp ?? "user MCP config"}\n`,
     );
   }
 }

@@ -32,6 +32,6 @@ Exit code 0 and a positive belief count proves CLI reads the same store as the A
 
 ## Gotchas
 
-- `init` without `--project` writes to `~/.cairn` and ignores project cwd — use `--project` or set `CAIRN_HOME` before `init --project`.
+- `init` without `--project` (or `init --shared`) writes `~/.cairn` — one store for every agent you point at that `CAIRN_HOME`. `init --project` writes `./.cairn` for this repo only. Those are different databases.
 - `recall` does not start the desk; it reads SQLite directly.
 - Do not use bare `npx cairn` (that is an unrelated npm package). Prefer `npx --yes @quarkos/cairn` or in-repo `node bin/cairn.mjs`.

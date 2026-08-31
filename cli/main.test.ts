@@ -23,11 +23,24 @@ const binPath = join(repoRoot, "bin", "cairn.mjs");
 
 type CliResult = { code: number | null; stdout: string; stderr: string };
 
-function runCli(cwd: string, args: string[]): Promise<CliResult> {
+function runCli(
+  cwd: string,
+  args: string[],
+  extraEnv: NodeJS.ProcessEnv = {},
+): Promise<CliResult> {
   return new Promise((resolveResult, reject) => {
-    const env: NodeJS.ProcessEnv = { ...process.env };
-    delete env.CAIRN_HOME;
-    delete env.CAIRN_DB_PATH;
+    const isolatedHome =
+      extraEnv.HOME ??
+      extraEnv.USERPROFILE ??
+      join(cwd, ".cairn-test-home");
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      ...extraEnv,
+      HOME: isolatedHome,
+      USERPROFILE: isolatedHome,
+    };
+    if (!("CAIRN_HOME" in extraEnv)) delete env.CAIRN_HOME;
+    if (!("CAIRN_DB_PATH" in extraEnv)) delete env.CAIRN_DB_PATH;
     const child = spawn(process.execPath, [binPath, ...args], {
       cwd,
       env,
@@ -204,6 +217,101 @@ describe("CLI safety", () => {
     const result = await runCli(root, ["--help"]);
     assert.equal(result.code, 0, result.stderr);
     assert.match(result.stdout, /Usage: cairn/);
+  });
+
+  it("names shared and project stores in --help so a stranger can pick", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-help-modes-"));
+    roots.push(root);
+    const result = await runCli(root, ["--help"]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /@quarkos\/cairn/);
+    assert.doesNotMatch(result.stdout, /npx cairn\b/);
+    assert.match(result.stdout, /shared store/i);
+    assert.match(result.stdout, /chief of staff/i);
+    assert.match(result.stdout, /init --project/);
+    assert.match(result.stdout, /per repo|per-repo|only this repo/i);
+    assert.match(result.stdout, /~\/\.cairn/);
+    assert.match(result.stdout, /CAIRN_HOME/);
+    assert.match(result.stdout, /second MCP client|point another MCP|Point a second/i);
+  });
+
+  it("prints init --help without creating a store", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-init-help-"));
+    roots.push(root);
+    const result = await runCli(root, ["init", "--help"]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /shared store/i);
+    assert.match(result.stdout, /init --project/);
+    assert.match(result.stdout, /chief of staff/i);
+    assert.match(result.stdout, /CAIRN_HOME/);
+    assert.equal(existsSync(join(root, ".cairn")), false);
+    assert.equal(existsSync(join(root, ".cursor")), false);
+    assert.equal(existsSync(join(root, ".mcp.json")), false);
+  });
+
+  it("init --project success copy says the store is per-repo", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-project-copy-"));
+    roots.push(root);
+    const result = await runCli(root, ["init", "--project"]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /project store/i);
+    assert.match(result.stdout, /only this repo|per.repo|other agents will not see/i);
+    assert.match(result.stdout, /npx --yes @quarkos\/cairn init/);
+    assert.ok(result.stdout.includes(join(root, ".cairn")));
+  });
+
+  it("init without --project and init --shared name the shared store", async () => {
+    for (const args of [["init"], ["init", "--shared"]] as const) {
+      const fakeHome = mkdtempSync(join(tmpdir(), "cairn-cli-shared-home-"));
+      const cwd = mkdtempSync(join(tmpdir(), "cairn-cli-shared-cwd-"));
+      roots.push(fakeHome, cwd);
+      const result = await runCli(cwd, [...args], { HOME: fakeHome });
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /shared store/i);
+      assert.match(result.stdout, /chief of staff|every agent/i);
+      assert.match(result.stdout, /CAIRN_HOME/);
+      assert.ok(result.stdout.includes(join(fakeHome, ".cairn")));
+      assert.equal(existsSync(join(cwd, ".cairn")), false);
+      assert.equal(existsSync(join(fakeHome, ".cairn")), true);
+      assert.equal(existsSync(join(fakeHome, ".config", "mcp", "mcp.json")), true);
+    }
+  });
+
+  it("rejects --project together with --shared before creating files", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-both-modes-"));
+    roots.push(root);
+    const result = await runCli(root, ["init", "--project", "--shared"]);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /--project.*--shared|--shared.*--project/);
+    assert.equal(existsSync(join(root, ".cairn")), false);
+    assert.equal(existsSync(join(root, ".cursor")), false);
+    assert.equal(existsSync(join(root, ".mcp.json")), false);
+  });
+
+  it("warns when --project would split away from an existing shared store", async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), "cairn-cli-split-home-"));
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-split-project-"));
+    roots.push(fakeHome, root);
+    mkdirSync(join(fakeHome, ".cairn"));
+    writeFileSync(join(fakeHome, ".cairn", "cairn.db"), "");
+    const result = await runCli(root, ["init", "--project"], { HOME: fakeHome });
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /shared store already exists/i);
+    assert.ok(result.stdout.includes(join(fakeHome, ".cairn")));
+  });
+
+  it("does not call an empty project .cairn a separate database", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-empty-project-home-"));
+    roots.push(root);
+    mkdirSync(join(root, ".cairn"));
+
+    const result = await runCli(root, ["init", "--shared"]);
+
+    assert.equal(result.code, 0, result.stderr);
+    assert.doesNotMatch(
+      result.stdout,
+      /Note: \.\/\.cairn already exists in this directory/,
+    );
   });
 
   it("rejects unknown init options before creating files", async () => {
