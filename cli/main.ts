@@ -252,7 +252,7 @@ async function cmdInit(args: string[]): Promise<void> {
     const globalMcp = preparedConfigs[0]?.path;
     const projectHome = resolve(cwd, ".cairn");
     const splitNote =
-      existsSync(projectHome) && projectHome !== home
+      existsSync(join(projectHome, "cairn.db")) && projectHome !== home
         ? `Note: ./.cairn already exists in this directory. Shared init used ${home} instead; those are separate databases.\n`
         : "";
     process.stdout.write(

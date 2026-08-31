@@ -29,7 +29,16 @@ function runCli(
   extraEnv: NodeJS.ProcessEnv = {},
 ): Promise<CliResult> {
   return new Promise((resolveResult, reject) => {
-    const env: NodeJS.ProcessEnv = { ...process.env, ...extraEnv };
+    const isolatedHome =
+      extraEnv.HOME ??
+      extraEnv.USERPROFILE ??
+      join(cwd, ".cairn-test-home");
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      ...extraEnv,
+      HOME: isolatedHome,
+      USERPROFILE: isolatedHome,
+    };
     if (!("CAIRN_HOME" in extraEnv)) delete env.CAIRN_HOME;
     if (!("CAIRN_DB_PATH" in extraEnv)) delete env.CAIRN_DB_PATH;
     const child = spawn(process.execPath, [binPath, ...args], {
@@ -289,6 +298,20 @@ describe("CLI safety", () => {
     assert.equal(result.code, 0, result.stderr);
     assert.match(result.stdout, /shared store already exists/i);
     assert.ok(result.stdout.includes(join(fakeHome, ".cairn")));
+  });
+
+  it("does not call an empty project .cairn a separate database", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-empty-project-home-"));
+    roots.push(root);
+    mkdirSync(join(root, ".cairn"));
+
+    const result = await runCli(root, ["init", "--shared"]);
+
+    assert.equal(result.code, 0, result.stderr);
+    assert.doesNotMatch(
+      result.stdout,
+      /Note: \.\/\.cairn already exists in this directory/,
+    );
   });
 
   it("rejects unknown init options before creating files", async () => {
