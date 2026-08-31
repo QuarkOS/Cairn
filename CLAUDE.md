@@ -17,6 +17,8 @@ node bin/cairn.mjs init --project
 
 Init creates `.cairn/`, writes Cursor config at `.cursor/mcp.json`, and writes `.mcp.json` for Claude Code and Pi. The shared file uses an absolute `CAIRN_HOME`. It must not use Cursor's `${workspaceFolder}`. Approve the project MCP server when Claude Code asks.
 
+Skip `--project` (`npx --yes @quarkos/cairn init` or `init --shared`) for a shared store at `~/.cairn` that every agent can share. This checkout uses `--project` so the repo has its own `.cairn`.
+
 `CAIRN_HOME` resolution:
 
 1. `CAIRN_HOME` if set

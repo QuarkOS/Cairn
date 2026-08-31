@@ -11,7 +11,39 @@ The npm package is **`@quarkos/cairn`**. Always use the scoped package name; the
 
 ## Install
 
-From any empty project folder (Node 20+):
+Node 20+. Always use the scoped package **`@quarkos/cairn`**. Pick a store first: agents only see facts in the `CAIRN_HOME` they are pointed at. `npx --yes @quarkos/cairn --help` names both modes.
+
+### Shared store (one chief of staff, every agent)
+
+Run once. Creates `~/.cairn` (or `$CAIRN_HOME` if you set it) and writes `~/.config/mcp/mcp.json`:
+
+```bash
+npx --yes @quarkos/cairn init
+```
+
+`--shared` is the same command, spelled out. Point a second MCP client at that directory. Do not run `init --project` in each repo if those agents should share facts.
+
+```json
+{
+  "mcpServers": {
+    "cairn": {
+      "command": "npx",
+      "args": ["-y", "@quarkos/cairn", "mcp"],
+      "env": {
+        "CAIRN_HOME": "/home/you/.cairn"
+      }
+    }
+  }
+}
+```
+
+Use the path `init` printed. Cursor user MCP settings, Claude Code, and Pi all work the same way: same `CAIRN_HOME`, same store. You do not need to run `init` again to add another client.
+
+### Project store (one database per repo)
+
+Facts in this repo stay in this repo. Another agent or workspace will not see them unless its MCP `CAIRN_HOME` is this `.cairn`.
+
+From an empty project folder:
 
 ```bash
 npx --yes @quarkos/cairn --help
@@ -23,17 +55,12 @@ The first command warms the npx cache. `init --project` creates `.cairn/cairn.db
 
 On an ephemeral VM, run the scoped help command once before starting an agent so the MCP process does not pay the package download during client startup. Run project init again for each new workspace, then reload the client's MCP configuration. Claude Code may ask for the expected project-server approval; Pi must be installed in the VM.
 
-Global install without a project file:
-
-```bash
-npx --yes @quarkos/cairn init
-```
-
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `cairn init --project` | Empty database + Cursor + Pi/Claude MCP config in the current repo |
+| `cairn init` / `init --shared` | Shared store at `~/.cairn` (or `$CAIRN_HOME`) + user MCP config. One database for a chief of staff. |
+| `cairn init --project` | Per-repo `.cairn` + Cursor + Pi/Claude MCP config. Other agents cannot see these facts unless pointed at this directory. |
 | `cairn init --project --demo` | Seed sample beliefs only when the project store is empty |
 | `cairn dev` | Desk and API on port 4721, using this project's `.cairn` |
 | `cairn start` | Production server after `npm run build` |
@@ -82,6 +109,8 @@ curl -s http://127.0.0.1:4721/api/cairn \
 ```
 
 ## Harness plugins
+
+After shared `init`, Cairn writes `~/.config/mcp/mcp.json` with an absolute `CAIRN_HOME`. Cursor does not read that file — paste the same server into Cursor's **user** MCP config (or any other client) with `CAIRN_HOME` set to the path `init` printed. To point a second client at an existing store without creating another database, set `CAIRN_HOME` and run `npx -y @quarkos/cairn mcp`. You do not need to run `init` again.
 
 ### Cursor
 
@@ -160,6 +189,8 @@ Resolution, in order:
 1. `CAIRN_HOME` if you set it
 2. `./.cairn` in the directory you ran the command from, if that folder exists
 3. `~/.cairn`
+
+`init` creates the shared home (`~/.cairn` or `$CAIRN_HOME`). `init --project` creates `./.cairn`. Those are different databases. Two MCP clients that set the same `CAIRN_HOME` share facts; mixing `--project` and a shared home does not.
 
 `cairn dev` and `cairn start` run Next.js from the installed package, not from your project. They still pin `CAIRN_HOME` using the rule above, so a throwaway project that ran `init --project` talks to **that** project's database without exporting anything. Set `CAIRN_HOME` only when you want a different store.
 
