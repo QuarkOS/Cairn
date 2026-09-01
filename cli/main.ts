@@ -389,13 +389,25 @@ function cmdStart(args: string[]): void {
   runNext("start", ["--port", parsePortArgs(args)]);
 }
 
+function argsWantHelp(args: string[]): boolean {
+  return args.includes("--help") || args.includes("-h");
+}
+
 async function cmdMcp(args: string[]): Promise<void> {
+  if (argsWantHelp(args)) {
+    usage();
+    return;
+  }
   if (args.length > 0) throw new Error("mcp does not accept options");
   const { startMcpServer } = await import("../src/mcp/server");
   await startMcpServer();
 }
 
 async function cmdRecall(args: string[]): Promise<void> {
+  if (argsWantHelp(args)) {
+    usage();
+    return;
+  }
   if (args.length > 0) throw new Error("recall does not accept options");
   const { handleRequest } = await import("../src/lib/cairn/store");
   const response = await handleRequest({
