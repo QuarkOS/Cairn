@@ -80,3 +80,24 @@ describe("resolveDeskHome", () => {
     assert.equal(resolveCairnPaths(project, { CAIRN_HOME: custom }).home, custom);
   });
 });
+
+describe("resolveCairnPaths optional CAIRN_HOME", () => {
+  const root = mkdtempSync(join(tmpdir(), "cairn-home-optional-"));
+  after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("falls through to ./.cairn when CAIRN_HOME is empty", () => {
+    const project = join(root, "empty-home");
+    mkdirSync(join(project, ".cairn"), { recursive: true });
+    const paths = resolveCairnPaths(project, { CAIRN_HOME: "" });
+    assert.equal(paths.home, join(project, ".cairn"));
+  });
+
+  it("falls through when CAIRN_HOME is an unsubstituted ${VAR}", () => {
+    const project = join(root, "placeholder-home");
+    mkdirSync(join(project, ".cairn"), { recursive: true });
+    const paths = resolveCairnPaths(project, { CAIRN_HOME: "${CAIRN_HOME}" });
+    assert.equal(paths.home, join(project, ".cairn"));
+  });
+});

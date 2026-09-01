@@ -32,12 +32,27 @@ export function resolveInvocationCwd(input: {
   return cwd;
 }
 
+/**
+ * Treat empty values and unsubstituted `${VAR}` placeholders as unset.
+ *
+ * Cursor plugin Configure injects optional variables into mcp.json `env`.
+ * When CAIRN_HOME is left blank, hosts may pass "" or the literal
+ * `${CAIRN_HOME}`. Either would skip native resolution (CAIRN_HOME, else
+ * ./.cairn, else ~/.cairn) if we treated them as a real path.
+ */
+function usablePathOverride(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(trimmed)) return undefined;
+  return trimmed;
+}
+
 export function resolveCairnPaths(
   cwd = process.cwd(),
   env: Record<string, string | undefined> = process.env,
 ): CairnPaths {
-  const dbOverride = env.CAIRN_DB_PATH?.trim();
-  const homeOverride = env.CAIRN_HOME?.trim();
+  const dbOverride = usablePathOverride(env.CAIRN_DB_PATH);
+  const homeOverride = usablePathOverride(env.CAIRN_HOME);
 
   let home: string;
   if (homeOverride) {

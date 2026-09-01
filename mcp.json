@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "cairn": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@quarkos/cairn", "mcp"],
+      "env": {
+        "CAIRN_HOME": "${CAIRN_HOME}"
+      }
+    }
+  }
+}
