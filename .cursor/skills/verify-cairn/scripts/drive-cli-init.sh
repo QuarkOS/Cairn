@@ -20,12 +20,20 @@ trap cleanup_tmp EXIT
 PROJECT="$TMP/proj"
 OTHER_HOME="$TMP/other-home"
 mkdir -p "$PROJECT" "$OTHER_HOME"
+set +e
 (
   cd "$PROJECT"
   unset CAIRN_DB_PATH
   export CAIRN_HOME="$OTHER_HOME"
   node "$BIN" init --project >"$EVIDENCE_DIR/init-project-stdout.txt" 2>"$EVIDENCE_DIR/init-project-stderr.txt"
 )
+INIT_RC=$?
+set -e
+if [[ "$INIT_RC" -ne 0 ]]; then
+  echo "FAIL: init --project exited $INIT_RC" >&2
+  cat "$EVIDENCE_DIR/init-project-stderr.txt" >&2
+  exit 1
+fi
 
 if [[ ! -d "$PROJECT/.cairn" ]]; then
   echo "FAIL: init --project did not create <cwd>/.cairn" >&2
@@ -44,11 +52,19 @@ echo "OK: init --project ignored CAIRN_HOME=$OTHER_HOME" >&2
 # --- --demo seeds empty store, refuses a second run ---
 DEMO="$TMP/demo"
 mkdir -p "$DEMO"
+set +e
 (
   cd "$DEMO"
   unset CAIRN_HOME CAIRN_DB_PATH
   node "$BIN" init --project --demo >"$EVIDENCE_DIR/init-demo-stdout.txt" 2>"$EVIDENCE_DIR/init-demo-stderr.txt"
 )
+DEMO_FIRST=$?
+set -e
+if [[ "$DEMO_FIRST" -ne 0 ]]; then
+  echo "FAIL: first init --project --demo exited $DEMO_FIRST" >&2
+  cat "$EVIDENCE_DIR/init-demo-stderr.txt" >&2
+  exit 1
+fi
 if ! grep -q "Loaded sample beliefs" "$EVIDENCE_DIR/init-demo-stdout.txt"; then
   echo "FAIL: first init --project --demo did not load sample beliefs" >&2
   exit 1
@@ -74,12 +90,23 @@ fi
 echo "OK: --demo refused a non-empty store" >&2
 
 # --- overlay: empty string and literal ${CAIRN_HOME} treated as unset ---
+set +e
 (
   cd "$DEMO"
   unset CAIRN_DB_PATH
-  CAIRN_HOME="" node "$BIN" recall >"$EVIDENCE_DIR/recall-empty-home.json"
-  CAIRN_HOME='${CAIRN_HOME}' node "$BIN" recall >"$EVIDENCE_DIR/recall-placeholder-home.json"
+  CAIRN_HOME="" node "$BIN" recall >"$EVIDENCE_DIR/recall-empty-home.json" 2>"$EVIDENCE_DIR/recall-empty-home.stderr"
+  empty_rc=$?
+  CAIRN_HOME='${CAIRN_HOME}' node "$BIN" recall >"$EVIDENCE_DIR/recall-placeholder-home.json" 2>"$EVIDENCE_DIR/recall-placeholder-home.stderr"
+  placeholder_rc=$?
+  exit $(( empty_rc != 0 ? empty_rc : placeholder_rc ))
 )
+OVERLAY_RC=$?
+set -e
+if [[ "$OVERLAY_RC" -ne 0 ]]; then
+  echo "FAIL: overlay recall exited $OVERLAY_RC" >&2
+  cat "$EVIDENCE_DIR/recall-empty-home.stderr" "$EVIDENCE_DIR/recall-placeholder-home.stderr" >&2
+  exit 1
+fi
 
 node -e "
 const fs = require('fs');
