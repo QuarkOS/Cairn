@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "cairn",
+  "version": "0.4.5",
+  "description": "Typed facts for agents via @quarkos/cairn. Assert, recall, and retract beliefs that outlive the session. Never the unscoped npm package cairn.",
+  "author": {
+    "name": "QuarkOS / Emilio Schwaiger",
+    "url": "https://github.com/QuarkOS"
+  },
+  "homepage": "https://github.com/QuarkOS/Cairn",
+  "repository": "https://github.com/QuarkOS/Cairn",
+  "license": "MIT",
+  "keywords": ["cairn", "mcp", "memory", "facts", "agents"]
+}

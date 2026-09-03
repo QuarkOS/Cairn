@@ -60,7 +60,7 @@ Exit 0 prints `OK: session=… port=…`. Non-zero means launch again or cleanup
 
 ## Drive
 
-Pick a feature from [`features/README.md`](features/README.md). Prefer the HTTP path when proving persistence; use the browser when proving desk UX.
+Pick a feature from [`features/README.md`](features/README.md). Prefer the HTTP path when proving persistence; use the browser when proving desk UX. CLI init (`drive-cli-init.sh`) and the Cursor Agent Plugin (`drive-cursor-plugin.sh`) do not need a verify instance — do not double-launch to run them.
 
 ### HTTP API — assert + recall (default proof)
 
@@ -156,8 +156,10 @@ All scripts live in `.cursor/skills/verify-cairn/scripts/` and must be executabl
 | `doctor.sh` | Pre-flight health check |
 | `drive-api-assert-recall.sh` | HTTP assert + recall proof |
 | `drive-canvas.sh` | Canvas page + layout API proof |
+| `drive-cli-init.sh` | `init --project` ignores `CAIRN_HOME`; `--demo` empty-store refusal; overlay recall (no desk) |
 | `drive-cli-recall.sh` | CLI recall JSON proof |
 | `drive-retract.sh` | POST retract + absent from recall |
+| `drive-cursor-plugin.sh` | Plugin manifests + skills (no desk, no IDE injection) |
 | `cleanup.sh` | Tear down instance, keep evidence |
 
 ## Maintenance
