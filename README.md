@@ -191,7 +191,7 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 npm publish --access public
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.5`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.6`.
 
 ## Where the database lives
 

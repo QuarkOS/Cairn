@@ -81,7 +81,7 @@ result: pass
 surface: plugin.json + mcp.json + .cursor-plugin/plugin.json + skills cairn-recall/cairn-assert
 limit: IDE on installer machine; does not inject into Cursor cloud VMs
 npm: @quarkos/cairn
-published-0.4.5-guard: not proven here (this checkout only until a later npm release)
+published-guard: 0.4.6 ships empty-string / \${CAIRN_HOME} overlay; this script proves checkout layout only
 EOF
 
 echo "$EVIDENCE_DIR"
