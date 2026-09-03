@@ -23,11 +23,15 @@ const binPath = join(repoRoot, "bin", "cairn.mjs");
 
 type CliResult = { code: number | null; stdout: string; stderr: string };
 
-function runCli(cwd: string, args: string[]): Promise<CliResult> {
+function runCli(
+  cwd: string,
+  args: string[],
+  extraEnv: NodeJS.ProcessEnv = {},
+): Promise<CliResult> {
   return new Promise((resolveResult, reject) => {
-    const env: NodeJS.ProcessEnv = { ...process.env };
-    delete env.CAIRN_HOME;
-    delete env.CAIRN_DB_PATH;
+    const env: NodeJS.ProcessEnv = { ...process.env, ...extraEnv };
+    if (!("CAIRN_HOME" in extraEnv)) delete env.CAIRN_HOME;
+    if (!("CAIRN_DB_PATH" in extraEnv)) delete env.CAIRN_DB_PATH;
     const child = spawn(process.execPath, [binPath, ...args], {
       cwd,
       env,
@@ -204,6 +208,57 @@ describe("CLI safety", () => {
     const result = await runCli(root, ["--help"]);
     assert.equal(result.code, 0, result.stderr);
     assert.match(result.stdout, /Usage: cairn/);
+  });
+
+  it("prints help for mcp --help and recall --help without starting a store", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-sub-help-"));
+    roots.push(root);
+    for (const command of ["mcp", "recall"] as const) {
+      const result = await runCli(root, [command, "--help"]);
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /Usage: cairn/);
+      assert.match(result.stdout, /mcp/);
+      assert.equal(existsSync(join(root, ".cairn")), false);
+    }
+  });
+
+  it("writes absolute CAIRN_HOME in .mcp.json, not Cursor's workspace placeholder", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-portable-mcp-"));
+    roots.push(root);
+    const result = await runCli(root, ["init", "--project"]);
+    assert.equal(result.code, 0, result.stderr);
+
+    const portable = JSON.parse(readFileSync(join(root, ".mcp.json"), "utf8")) as {
+      mcpServers: { cairn: { env: { CAIRN_HOME: string } } };
+    };
+    const cursor = JSON.parse(
+      readFileSync(join(root, ".cursor", "mcp.json"), "utf8"),
+    ) as { mcpServers: { cairn: { env: { CAIRN_HOME: string } } } };
+
+    const home = join(root, ".cairn");
+    assert.equal(portable.mcpServers.cairn.env.CAIRN_HOME, home);
+    assert.equal(portable.mcpServers.cairn.env.CAIRN_HOME.includes("${"), false);
+    assert.equal(
+      cursor.mcpServers.cairn.env.CAIRN_HOME,
+      "${workspaceFolder}/.cairn",
+    );
+  });
+
+  it("init --project ignores CAIRN_HOME and still uses ./.cairn", async () => {
+    const decoy = mkdtempSync(join(tmpdir(), "cairn-cli-decoy-home-"));
+    const root = mkdtempSync(join(tmpdir(), "cairn-cli-ignore-home-"));
+    roots.push(decoy, root);
+    const result = await runCli(root, ["init", "--project"], {
+      CAIRN_HOME: decoy,
+    });
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(existsSync(join(root, ".cairn")), true);
+    assert.equal(existsSync(join(decoy, "cairn.db")), false);
+    const portable = JSON.parse(readFileSync(join(root, ".mcp.json"), "utf8")) as {
+      mcpServers: { cairn: { env: { CAIRN_HOME: string } } };
+    };
+    assert.equal(portable.mcpServers.cairn.env.CAIRN_HOME, join(root, ".cairn"));
+    assert.notEqual(portable.mcpServers.cairn.env.CAIRN_HOME, decoy);
   });
 
   it("rejects unknown init options before creating files", async () => {
