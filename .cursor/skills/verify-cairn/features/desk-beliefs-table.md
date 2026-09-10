@@ -12,7 +12,7 @@
 ## How to get to it (user POV)
 
 1. Start Cairn: `npx --yes @quarkos/cairn dev` or the verify `launch.sh`
-2. Open `http://127.0.0.1:<port>/`
+2. Open the desk at `http://localhost:<port>/`. On `cairn dev`, `http://127.0.0.1:<port>/` may not hydrate (403 on `/_next` JS chunks / `allowedDevOrigins`); `localhost` works. API curls to `127.0.0.1` are fine.
 3. The main column shows **Live beliefs** with count and `recalled <timestamp>`
 
 ## Driving it with browser (CDP / Browser-use)
@@ -30,7 +30,8 @@ Do not treat **+N more** as part of the demo proof. Overflow needs more than fiv
 ## Gotchas
 
 - Initial beliefs are empty after `init --project`. Verify launch uses `--demo` so the table starts with ~10 sample facts. `POST /api/cairn/reset` reloads that same demo set.
-- Search matches entity, attribute, value, provenance text, and freshness label.
+- Search matches entity, attribute, value, provenance text, validity text, and freshness label. Validity search text is `until-superseded`, `ttl <n>s`, or `expires <iso>`; there are no live `reverify` rows (legacy inbound `reverify` is stored as `ttl`).
 - Chip labels are the full `entity` string. There is no chip named `staging`.
 - Entity chips overflow into “+N more” only when there are more than five entities (`ENTITY_CHIP_LIMIT = 5`). Demo data has four, so the control is absent until you assert a sixth distinct entity.
 - Canvas (`/canvas`) auto-refreshes every 5s; the desk table does not.
+- `cairn dev` desk UI: use `http://localhost:<port>/`, not `127.0.0.1` (JS chunks may 403). Verify `launch.sh` is production `next start`; curl may keep using `127.0.0.1`.

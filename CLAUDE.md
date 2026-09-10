@@ -6,7 +6,7 @@ Every write needs an `idempotencyKey`. Reuse a key only to replay the same body.
 
 Facts are append-only and typed. Retract or supersede. Do not edit a row, send free-form JSON values, or search by meaning. Do not wait on a human in the middle of a request.
 
-Call `cairn_recall` at the start of a session before you rely on a persisted fact. Each belief has `freshness` and `assurance`. Treat stale or expired as not current.
+Call `cairn_recall` at the start of a session before you rely on a persisted fact. Each belief has `freshness` and `assurance`. Freshness is age-advisory; the store never runs probes. Treat stale or expired as not current. Re-observe outside Cairn, then assert with supersede.
 
 This checkout does not commit `.mcp.json`. That file stores an absolute `CAIRN_HOME`, which is different on every machine.
 

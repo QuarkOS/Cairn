@@ -10,7 +10,7 @@
 
 ## How to get to it (user POV)
 
-1. Open the desk at `/`
+1. Open the desk at `http://localhost:<port>/` (on `cairn dev`, `127.0.0.1` may 403 JS chunks)
 2. Right sidebar card titled **Agent API**
 3. Pick a tab, edit JSON, click **Send request**
 
@@ -29,4 +29,5 @@ Repeat with **Recall** tab — response `"kind": "recalled"` and beliefs array i
 
 - Invalid JSON shows an inline error under the button; response pane unchanged.
 - While `busy`, **Send request** label reads `Sending…` and **Retract** row buttons disable.
-- Tab switch replaces editor content with the built-in sample for that kind.
+- Tab switch replaces editor content with the built-in sample for that kind. Assert sample validity is `until-superseded` (not `reverify`).
+- `cairn dev` desk UI: use `http://localhost:<port>/`. `http://127.0.0.1:<port>/` may fail to hydrate (`allowedDevOrigins` / 403 on `/_next` chunks). The verify production instance does not apply that origin guard; API curls to `127.0.0.1` stay correct.

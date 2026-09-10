@@ -5,7 +5,7 @@ description: Launch an isolated Cairn dev instance, drive the HTTP API or desk U
 
 # Verify Cairn
 
-Cairn is a Next.js desk plus JSON/MCP API on port **4721** by default. Verification uses a **separate production instance on port 14721** with its own `CAIRN_HOME` scratch directory. Next.js allows only one `next dev` process per repo, so the verify instance runs `npm run start` after `npm run build` — it can run alongside your normal `cairn dev` on 4721.
+Cairn is a Next.js desk plus JSON/MCP API on port **4721** by default. Verification uses a **separate production instance on port 14721** with its own `CAIRN_HOME` scratch directory. Next.js allows only one `next dev` process per repo, so the verify instance runs `npm run start` after the skill-owned `scripts/build-desk.sh` — it can run alongside your normal `cairn dev` on 4721.
 
 **Primary surface:** HTTP API (`GET/POST /api/cairn`) and the desk at `/`.  
 **Secondary:** CLI (`node bin/cairn.mjs …`) and stdio MCP (`cairn mcp`).
@@ -25,11 +25,15 @@ This:
 
 1. Creates `.cursor/skills/verify-cairn/scratch/<run-id>/project/` with an isolated `CAIRN_HOME` at that project's `.cairn`
 2. Runs `node bin/cairn.mjs init --project --demo` in that project (sample beliefs for canvas pods)
-3. Runs `npm run build`, then `npm run start -- --port 14721` in tmux session `cairn-verify-<run-id>`
+3. Runs the skill-owned `scripts/build-desk.sh` (Next production build with tests excluded from typecheck), then `npm run start -- --port 14721` in tmux session `cairn-verify-<run-id>`
 4. Waits until `GET http://127.0.0.1:14721/api/cairn` succeeds
 5. Writes `.cursor/skills/verify-cairn/scratch/instance.json` (session name, port, paths)
 
+Do **not** use stock `npm run build` from this skill. That typechecks `**/*.ts` including `cli/main.test.ts`, which fails a pre-existing `ProcessEnv` / `NODE_ENV` typing error (product gap — report it, do not patch `cli/` or product `tsconfig.json` here). `build-desk.sh` flattens [`tsconfig.verify.json`](tsconfig.verify.json) (extends the product config, excludes `**/*.test.ts`) into scratch and points Next at it via [`scripts/tsconfig-overlay.cjs`](scripts/tsconfig-overlay.cjs) so product config files are never written.
+
 **Ready signal:** `curl -sf http://127.0.0.1:14721/api/cairn` returns JSON with `"kind":"recalled"`.
+
+**Desk URL:** API curls to `http://127.0.0.1:<port>/api/cairn` are correct. For the **desk UI** on `cairn dev`, open `http://localhost:<port>/`. `http://127.0.0.1:<port>/` may fail to hydrate (403 on `/_next` JS chunks / `allowedDevOrigins`) because `cairn dev` binds `--hostname 0.0.0.0` and Next's default allowlist includes `localhost` but not `127.0.0.1`. The verify instance uses production `next start`, where that origin guard does not apply; still prefer `localhost` when driving the desk in a browser, and keep `127.0.0.1` for curl.
 
 **Teardown:** always run cleanup when finished (success or failure):
 
@@ -84,7 +88,7 @@ curl -sf "http://127.0.0.1:${PORT}/api/cairn" | node -e "const b=JSON.parse(requ
 
 Requires a running verify instance (`launch.sh` + `doctor.sh`).
 
-1. Open `http://127.0.0.1:14721/`
+1. Open `http://localhost:14721/` (see **Desk URL** above; do not use `127.0.0.1` on `cairn dev`)
 2. In the right **Agent API** card, click the **Assert** tab (`role=tab`, name `Assert`)
 3. Edit the JSON `idempotencyKey` to a unique value; set `draft.attribute` to `desk.verify.marker`
 4. Click **Send request**
@@ -153,6 +157,7 @@ All scripts live in `.cursor/skills/verify-cairn/scripts/` and must be executabl
 | Script | Purpose |
 | --- | --- |
 | `launch.sh` | Isolated production instance on port 14721 |
+| `build-desk.sh` | Skill-owned `next build` (excludes `**/*.test.ts`; does not edit product config) |
 | `doctor.sh` | Pre-flight health check |
 | `drive-api-assert-recall.sh` | HTTP assert + recall proof |
 | `drive-canvas.sh` | Canvas page + layout API proof |

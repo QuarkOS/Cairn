@@ -186,12 +186,13 @@ describe("execute assert/recall/retract", () => {
     assert.equal(replay.store.retractions.length, 1);
   });
 
-  it("computes freshness for reverify and expires", () => {
+  it("computes freshness for ttl and expires", () => {
     const store = seedStore(now);
     const flaky = store.facts.find((f) => f.id === "f-0090");
     const cert = store.facts.find((f) => f.id === "f-0095");
     assert.ok(flaky);
     assert.ok(cert);
+    assert.equal(flaky.validity.kind, "ttl");
     assert.equal(freshnessOf(flaky, now), "stale");
     assert.equal(freshnessOf(cert, now), "expired");
     assert.equal(isoOf(now - DAY_MS).endsWith("Z"), true);
@@ -199,6 +200,7 @@ describe("execute assert/recall/retract", () => {
 });
 
 describe("parseCairnRequest", () => {
+  const now = Date.parse("2026-08-24T12:00:00.000Z");
   it("parses a valid assert and rejects garbage", () => {
     const ok = parseCairnRequest({
       kind: "assert",
@@ -219,6 +221,57 @@ describe("parseCairnRequest", () => {
     if (bad.ok) return;
     assert.equal(bad.response.kind, "rejected");
     assert.equal(bad.response.error.remedy.kind, "fix-request");
+  });
+
+  it("coerces legacy reverify JSON to ttl with identical freshness math", () => {
+    const parsed = parseCairnRequest({
+      kind: "assert",
+      idempotencyKey: "k-reverify",
+      onConflict: "fail",
+      draft: {
+        entity: "env:legacy",
+        attribute: "host.dns",
+        value: { kind: "text", text: "pg-staging-2.internal" },
+        provenance: {
+          kind: "observed",
+          command: "kubectl -n staging get svc",
+          session: "s-legacy",
+        },
+        validity: {
+          kind: "reverify",
+          command: "dig +short pg-staging-2.internal",
+          staleAfterSeconds: 60,
+        },
+      },
+    });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.request.kind, "assert");
+    if (parsed.request.kind !== "assert") return;
+    assert.deepEqual(parsed.request.draft.validity, {
+      kind: "ttl",
+      staleAfterSeconds: 60,
+    });
+    assert.equal(
+      JSON.stringify(parsed.request.draft.validity).includes("command"),
+      false,
+    );
+    assert.equal(parsed.request.draft.provenance.kind, "observed");
+    if (parsed.request.draft.provenance.kind === "observed") {
+      assert.equal(
+        parsed.request.draft.provenance.command,
+        "kubectl -n staging get svc",
+      );
+    }
+
+    const asserted = execute(emptyStore(), parsed.request, now);
+    assert.equal(asserted.response.kind, "asserted");
+    if (asserted.response.kind !== "asserted") return;
+    const fact = asserted.response.fact;
+    assert.deepEqual(fact.validity, { kind: "ttl", staleAfterSeconds: 60 });
+    const assertedMs = Date.parse(fact.assertedAt);
+    assert.equal(freshnessOf(fact, assertedMs + 59_000), "fresh");
+    assert.equal(freshnessOf(fact, assertedMs + 60_000), "stale");
   });
 });
 

@@ -293,7 +293,7 @@ function parseProvenance(
   }
 }
 
-function parseValidity(
+export function parseValidity(
   value: unknown,
 ):
   | { ok: true; value: Validity }
@@ -305,23 +305,21 @@ function parseValidity(
   switch (v.kind) {
     case "until-superseded":
       return { ok: true, value: { kind: "until-superseded" } };
-    case "reverify": {
-      const command = asNonEmptyString(v.command, "validity.command");
-      if (!command.ok) return command;
-      if (
-        typeof v.staleAfterSeconds !== "number" ||
-        !Number.isFinite(v.staleAfterSeconds) ||
-        v.staleAfterSeconds < 0
-      ) {
-        return reject("validity.staleAfterSeconds must be a non-negative number");
-      }
+    case "ttl": {
+      const seconds = parseStaleAfterSeconds(v.staleAfterSeconds);
+      if (!seconds.ok) return seconds;
       return {
         ok: true,
-        value: {
-          kind: "reverify",
-          command: command.value,
-          staleAfterSeconds: v.staleAfterSeconds,
-        },
+        value: { kind: "ttl", staleAfterSeconds: seconds.value },
+      };
+    }
+    case "reverify": {
+      // Legacy inbound kind. Stored as ttl; command is dropped and never run.
+      const seconds = parseStaleAfterSeconds(v.staleAfterSeconds);
+      if (!seconds.ok) return seconds;
+      return {
+        ok: true,
+        value: { kind: "ttl", staleAfterSeconds: seconds.value },
       };
     }
     case "expires": {
@@ -331,9 +329,20 @@ function parseValidity(
     }
     default:
       return reject(
-        'validity.kind must be "until-superseded", "reverify", or "expires"',
+        'validity.kind must be "until-superseded", "ttl", or "expires"',
       );
   }
+}
+
+function parseStaleAfterSeconds(
+  value: unknown,
+):
+  | { ok: true; value: number }
+  | { ok: false; response: Extract<CairnResponse, { kind: "rejected" }> } {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return reject("validity.staleAfterSeconds must be a non-negative number");
+  }
+  return { ok: true, value };
 }
 
 function asNonEmptyString(

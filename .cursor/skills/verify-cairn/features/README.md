@@ -6,6 +6,8 @@ Desk, HTTP, canvas, retract, and CLI **recall** need `../scripts/launch.sh` then
 
 CLI **init** (`drive-cli-init.sh`) and the Cursor Agent Plugin (`drive-cursor-plugin.sh`) are file/CLI proofs. They do **not** need a verify desk — do not double-launch to run them.
 
+On `cairn dev`, open the desk at `http://localhost:<port>/`. `http://127.0.0.1:<port>/` may 403 JS chunks (`allowedDevOrigins`). API curls to `127.0.0.1` are fine. Demo validity kinds are `until-superseded | ttl | expires` (legacy `reverify` coerces to `ttl`).
+
 | Feature | Surface | Drive doc | Primary proof |
 | --- | --- | --- | --- |
 | HTTP assert + recall | API | [http-api-assert-recall.md](http-api-assert-recall.md) | `scripts/drive-api-assert-recall.sh` |
