@@ -7,9 +7,9 @@ description: Recall typed Cairn facts via cairn_recall at session or task start,
 
 Call `cairn_recall` at the start of a session or task, and again before you rely on a persisted project fact.
 
-Do not invent facts. If recall returns nothing for that entity or attribute, say so. Each belief has `freshness` and `assurance`. Treat stale or expired beliefs as not current.
+Do not invent facts. If recall returns nothing for that entity or attribute, say so. Each belief has `freshness` and `assurance`. Freshness is age-advisory; the store never runs probes. Treat stale or expired beliefs as not current. Re-observe outside Cairn, then `cairn_assert` with `onConflict: supersede`.
 
-Organize around the fact shape (`entity`, `attribute`, typed `value`, `provenance`, `validity`). Do not dump raw rows or search by meaning.
+Organize around the fact shape (`entity`, `attribute`, typed `value`, `provenance`, `validity`). Validity kinds are `until-superseded`, `ttl`, and `expires`. Do not dump raw rows or search by meaning.
 
 The npm package is **`@quarkos/cairn`**. Never the unscoped `cairn` package.
 

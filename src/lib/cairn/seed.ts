@@ -44,8 +44,7 @@ export function seedStore(nowMs: number): Store {
         session: "s-015" as Fact["provenance"]["session"],
       },
       validity: {
-        kind: "reverify",
-        command: "npm test -- payment_retry --repeat 20",
+        kind: "ttl",
         staleAfterSeconds: 1_209_600,
       },
       assertedAt: ago(20),
@@ -62,8 +61,7 @@ export function seedStore(nowMs: number): Store {
         session: "s-015" as Fact["provenance"]["session"],
       },
       validity: {
-        kind: "reverify",
-        command: "dig +short pg-staging-2.internal",
+        kind: "ttl",
         staleAfterSeconds: 604_800,
       },
       assertedAt: ago(12),
@@ -91,8 +89,7 @@ export function seedStore(nowMs: number): Store {
       value: { kind: "text", text: "blocked-on-legal" },
       provenance: { kind: "told", by: "mira", session: "s-017" as Fact["provenance"]["session"] },
       validity: {
-        kind: "reverify",
-        command: "linear issue view PAY-812",
+        kind: "ttl",
         staleAfterSeconds: 864_000,
       },
       assertedAt: ago(9),
@@ -123,8 +120,7 @@ export function seedStore(nowMs: number): Store {
         session: "s-018" as Fact["provenance"]["session"],
       },
       validity: {
-        kind: "reverify",
-        command: "time npm run test:e2e",
+        kind: "ttl",
         staleAfterSeconds: 2_592_000,
       },
       assertedAt: ago(8),

@@ -30,7 +30,7 @@ Do not treat **+N more** as part of the demo proof. Overflow needs more than fiv
 ## Gotchas
 
 - Initial beliefs are empty after `init --project`. Verify launch uses `--demo` so the table starts with ~10 sample facts. `POST /api/cairn/reset` reloads that same demo set.
-- Search matches entity, attribute, value, provenance text, and freshness label.
+- Search matches entity, attribute, value, provenance text, validity text, and freshness label.
 - Chip labels are the full `entity` string. There is no chip named `staging`.
 - Entity chips overflow into “+N more” only when there are more than five entities (`ENTITY_CHIP_LIMIT = 5`). Demo data has four, so the control is absent until you assert a sixth distinct entity.
 - Canvas (`/canvas`) auto-refreshes every 5s; the desk table does not.

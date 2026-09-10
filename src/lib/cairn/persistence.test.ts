@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { after, describe, it } from "node:test";
 
 import { asAttributeId, asEntityId, asSessionId } from "./brand";
-import { execute } from "./execute";
+import { execute, freshnessOf, isoOf } from "./execute";
 import type { CairnRequest, CairnResponse, Store } from "./model";
 import {
   loadStoreFromDb,
@@ -180,6 +180,79 @@ describe("append-only persistence", () => {
       /append-only invariant/i,
     );
     assert.deepEqual(loadStoreFromDb(dbPath, NOW + 2), before);
+  });
+
+  it("coerces legacy reverify rows to ttl on load without rewriting disk", () => {
+    const root = mkdtempSync(join(tmpdir(), "cairn-persistence-reverify-"));
+    roots.push(root);
+    const dbPath = join(root, "cairn.db");
+    const assertedAt = isoOf(NOW);
+    const legacy = {
+      id: "f-0001",
+      entity: "env:legacy",
+      attribute: "host.dns",
+      value: { kind: "text", text: "pg-staging-2.internal" },
+      provenance: {
+        kind: "observed",
+        command: "kubectl -n staging get svc",
+        session: "s-legacy",
+      },
+      validity: {
+        kind: "reverify",
+        command: "dig +short pg-staging-2.internal",
+        staleAfterSeconds: 60,
+      },
+      assertedAt,
+      supersedes: null,
+    };
+
+    const db = new Database(dbPath);
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS facts (
+          id TEXT PRIMARY KEY,
+          body TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS retractions (
+          fact_id TEXT PRIMARY KEY,
+          body TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS stamps (
+          key TEXT PRIMARY KEY,
+          body TEXT NOT NULL
+        );
+      `);
+      db.prepare("INSERT INTO facts (id, body) VALUES (?, ?)").run(
+        legacy.id,
+        JSON.stringify(legacy),
+      );
+    } finally {
+      db.close();
+    }
+
+    const loaded = loadStoreFromDb(dbPath, NOW);
+    assert.equal(loaded.facts.length, 1);
+    const fact = loaded.facts[0];
+    assert.ok(fact);
+    assert.deepEqual(fact.validity, { kind: "ttl", staleAfterSeconds: 60 });
+    assert.equal(fact.assertedAt, assertedAt);
+    assert.equal(fact.provenance.kind, "observed");
+    if (fact.provenance.kind === "observed") {
+      assert.equal(fact.provenance.command, "kubectl -n staging get svc");
+    }
+    assert.equal(freshnessOf(fact, NOW + 59_000), "fresh");
+    assert.equal(freshnessOf(fact, NOW + 60_000), "stale");
+
+    const raw = new Database(dbPath);
+    try {
+      const row = raw
+        .prepare("SELECT body FROM facts WHERE id = ?")
+        .get(legacy.id) as { body: string };
+      const stored = JSON.parse(row.body) as { validity: { kind: string } };
+      assert.equal(stored.validity.kind, "reverify");
+    } finally {
+      raw.close();
+    }
   });
 });
 

@@ -2,7 +2,7 @@
 
 ## Sub-features
 
-- Root `plugin.json` (Agent Plugins 1.0.0, name `cairn`, version `0.4.6`)
+- Root `plugin.json` (Agent Plugins 1.0.0, name `cairn`, version `0.5.0`)
 - Root `mcp.json`: stdio server `cairn` via `npx -y @quarkos/cairn mcp` with `env.CAIRN_HOME` = `${CAIRN_HOME}`
 - Cursor overlay `.cursor-plugin/plugin.json` only so marketplace **Configure** can collect optional `CAIRN_HOME`. No rules, hooks, agents, or commands.
 - Skills `skills/cairn-recall/SKILL.md` and `skills/cairn-assert/SKILL.md` (do not invent facts; unique `idempotencyKey`; `onConflict: supersede` for live facts)

@@ -65,12 +65,23 @@ const VALIDITY = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("until-superseded") }).strict(),
   z
     .object({
-      kind: z.literal("reverify"),
-      command: NON_EMPTY_STRING,
+      kind: z.literal("ttl"),
       staleAfterSeconds: z.number().finite().nonnegative(),
     })
-    .strict(),
+    .strict()
+    .describe(
+      "Age-advisory TTL. Recall may mark the belief stale after this many seconds. The store never runs probes.",
+    ),
   z.object({ kind: z.literal("expires"), at: NON_EMPTY_STRING }).strict(),
+  z
+    .object({
+      kind: z.literal("reverify"),
+      staleAfterSeconds: z.number().finite().nonnegative(),
+      command: z.string().optional(),
+    })
+    .describe(
+      "Legacy inbound alias for ttl. Stored as ttl; command is dropped and never executed.",
+    ),
 ]);
 
 const ASSERT_DRAFT = z
@@ -88,7 +99,9 @@ const SERVER_INSTRUCTIONS = [
   "Prefer an exact, entity, or attribute query; use all only for orientation.",
   "Use cairn_assert and cairn_retract for writes; cairn_request remains only for compatibility with older clients.",
   "Every write needs an idempotency key; reuse a key only when replaying the exact same write.",
-  "Respect each belief's freshness and assurance before asserting or retracting.",
+  "Freshness is age-advisory: ttl is a clock, not a probe. The store never runs commands or child processes.",
+  "When a belief is stale, re-observe outside Cairn, then cairn_assert with onConflict supersede. Do not wait for Cairn to reverify.",
+  "Prefer validity.kind ttl, until-superseded, or expires. Legacy reverify on the wire is stored as ttl; command is dropped.",
 ].join(" ");
 
 function toolResult(response: CairnResponse) {
@@ -111,7 +124,7 @@ export function createMcpServer(): McpServer {
   const server = new McpServer(
     {
       name: "cairn",
-      version: "0.4.6",
+      version: "0.5.0",
     },
     { instructions: SERVER_INSTRUCTIONS },
   );

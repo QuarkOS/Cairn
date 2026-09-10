@@ -14,7 +14,7 @@ export type Provenance =
 
 export type Validity =
   | { kind: "until-superseded" }
-  | { kind: "reverify"; command: string; staleAfterSeconds: number }
+  | { kind: "ttl"; staleAfterSeconds: number }
   | { kind: "expires"; at: string };
 
 export type Fact = {

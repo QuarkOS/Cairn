@@ -56,7 +56,17 @@ The write tools expose the complete input schema and take request fields directl
 
 Every write carries an `idempotencyKey`. Replay the same key and body after a crash and Cairn returns the original result without writing twice.
 
-Recall returns `freshness` and `assurance` on each belief. Branch on `response.kind`. Rejections include `error.remedy.kind`.
+Recall returns `freshness` and `assurance` on each belief. Freshness is **age-advisory**: `ttl` is a clock, not a probe. The store never runs commands. When a belief is stale, re-observe outside Cairn, then assert with `onConflict: "supersede"`. Branch on `response.kind`. Rejections include `error.remedy.kind`.
+
+Validity kinds:
+
+| `validity.kind` | Meaning |
+| --- | --- |
+| `until-superseded` | Live until a later assert supersedes it |
+| `ttl` | Advisory stale after `staleAfterSeconds` from `assertedAt` |
+| `expires` | `expired` once `at` is reached |
+
+Inbound `validity.kind: "reverify"` is accepted for one minor and stored as `ttl`. The `command` field is dropped and is never executed. Do not send `reverify` on new asserts.
 
 ### Example assert
 
@@ -191,7 +201,7 @@ Agents group by `provenance.by` for told facts and by `provenance.session` for o
 npm publish --access public
 ```
 
-The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.4.6`.
+The published tarball ships the desk, canvas, API, CLI, and MCP server. Package and MCP server versions are both `0.5.0`. `Validity` no longer includes `reverify`; that is a public type break from 0.4.x.
 
 ## Where the database lives
 

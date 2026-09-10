@@ -11,7 +11,7 @@ Every write needs a unique `idempotencyKey`. Reuse a key only to replay the same
 
 When a live fact is no longer true, call `cairn_retract` (or supersede it with a new assert). Do not edit a row in place.
 
-Organize around the fact shape (`entity`, `attribute`, typed `value`, `provenance`, `validity`). Value kinds are `text`, `instant`, `reference`, `quantity`, and `flag`. Provenance kinds are `told`, `observed`, and `inferred`.
+Organize around the fact shape (`entity`, `attribute`, typed `value`, `provenance`, `validity`). Value kinds are `text`, `instant`, `reference`, `quantity`, and `flag`. Provenance kinds are `told`, `observed`, and `inferred`. Validity kinds are `until-superseded`, `ttl` (`staleAfterSeconds`), and `expires`. Freshness is age-advisory; the store never runs probes. Prefer `ttl` over legacy `reverify`, which is stored as `ttl` with `command` dropped.
 
 The npm package is **`@quarkos/cairn`**. Never the unscoped `cairn` package.
 

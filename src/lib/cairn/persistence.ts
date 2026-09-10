@@ -3,7 +3,8 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
-import type { Fact, Retraction, Stamp, Store } from "./model";
+import type { CairnResponse, Fact, Retraction, Stamp, Store } from "./model";
+import { parseValidity } from "./parse";
 import { seedStore } from "./seed";
 
 const SCHEMA = `
@@ -206,7 +207,7 @@ function writeStore(db: Database.Database, store: Store): void {
 function readStore(db: Database.Database): Store {
   const facts = (
     db.prepare("SELECT body FROM facts ORDER BY rowid").all() as { body: string }[]
-  ).map((row) => JSON.parse(row.body) as Fact);
+  ).map((row) => coerceLoadedFact(JSON.parse(row.body)));
 
   const retractions = (
     db.prepare("SELECT body FROM retractions ORDER BY rowid").all() as {
@@ -216,9 +217,44 @@ function readStore(db: Database.Database): Store {
 
   const stamps = (
     db.prepare("SELECT body FROM stamps ORDER BY rowid").all() as { body: string }[]
-  ).map((row) => JSON.parse(row.body) as Stamp);
+  ).map((row) => coerceLoadedStamp(JSON.parse(row.body)));
 
   return { facts, retractions, stamps };
+}
+
+function coerceLoadedFact(raw: unknown): Fact {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error("Stored fact body must be an object");
+  }
+  const fact = raw as Fact;
+  return { ...fact, validity: coerceLoadedValidity(fact.validity) };
+}
+
+function coerceLoadedStamp(raw: unknown): Stamp {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error("Stored stamp body must be an object");
+  }
+  const stamp = raw as Stamp;
+  return {
+    ...stamp,
+    response: coerceLoadedResponse(stamp.response),
+  };
+}
+
+function coerceLoadedResponse(response: CairnResponse): CairnResponse {
+  if (response.kind !== "asserted") return response;
+  return {
+    ...response,
+    fact: coerceLoadedFact(response.fact),
+  };
+}
+
+function coerceLoadedValidity(raw: unknown): Fact["validity"] {
+  const parsed = parseValidity(raw);
+  if (!parsed.ok) {
+    throw new Error(parsed.response.error.message);
+  }
+  return parsed.value;
 }
 
 function cloneStore(store: Store): Store {

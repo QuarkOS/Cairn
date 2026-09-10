@@ -1,4 +1,4 @@
-import type { Belief, Value } from "@/lib/cairn/model";
+import type { Belief, Validity, Value } from "@/lib/cairn/model";
 
 export type RecalledResponse = {
   kind: "recalled";
@@ -33,6 +33,17 @@ export function provenanceText(belief: Belief): string {
   }
 }
 
+export function validityText(validity: Validity): string {
+  switch (validity.kind) {
+    case "until-superseded":
+      return "until-superseded";
+    case "ttl":
+      return `ttl ${validity.staleAfterSeconds}s`;
+    case "expires":
+      return `expires ${validity.at}`;
+  }
+}
+
 export function beliefMatchesSearch(belief: Belief, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
@@ -41,6 +52,7 @@ export function beliefMatchesSearch(belief: Belief, query: string): boolean {
     belief.current.attribute,
     formatValue(belief.current.value),
     provenanceText(belief),
+    validityText(belief.current.validity),
     belief.freshness,
   ]
     .join(" ")

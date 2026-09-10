@@ -220,7 +220,7 @@ export function freshnessOf(fact: Fact, nowMs: number): Freshness {
   switch (fact.validity.kind) {
     case "until-superseded":
       return "fresh";
-    case "reverify": {
+    case "ttl": {
       const assertedMs = Date.parse(fact.assertedAt);
       const staleAt = assertedMs + fact.validity.staleAfterSeconds * 1000;
       return nowMs >= staleAt ? "stale" : "fresh";

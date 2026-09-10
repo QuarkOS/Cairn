@@ -15,7 +15,7 @@ If you are wiring a different project, `npx --yes @quarkos/cairn init --project`
 
 ## Two sessions
 
-These facts are about this package. Session one writes them. Session two starts a new process, recalls with freshness, then retracts one.
+These facts are about this package. Session one writes them. Session two starts a new process, recalls with freshness, then retracts one. Freshness is age-advisory: the store never re-runs a command.
 
 | idempotencyKey | entity | attribute | value |
 | --- | --- | --- | --- |

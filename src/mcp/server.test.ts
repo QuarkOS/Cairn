@@ -72,6 +72,9 @@ describe("MCP server contract", () => {
       assert.match(assertSchema, /onConflict/);
       assert.match(assertSchema, /provenance/);
       assert.match(assertSchema, /staleAfterSeconds/);
+      assert.match(assertSchema, /"ttl"/);
+      assert.match(assertSchema, /never runs probes/);
+      assert.match(assertSchema, /Legacy inbound alias for ttl/);
       const retractSchema = JSON.stringify(retract.inputSchema);
       assert.match(retractSchema, /factId/);
       assert.match(retractSchema, /reason/);
@@ -83,6 +86,8 @@ describe("MCP server contract", () => {
       assert.match(client.getInstructions() ?? "", /cairn_recall/);
       assert.match(client.getInstructions() ?? "", /cairn_assert/);
       assert.match(client.getInstructions() ?? "", /cairn_retract/);
+      assert.match(client.getInstructions() ?? "", /age-advisory/);
+      assert.match(client.getInstructions() ?? "", /never runs commands/);
 
       const assertion = {
         idempotencyKey: "first",
