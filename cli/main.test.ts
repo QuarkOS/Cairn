@@ -20,13 +20,16 @@ import { prepareNextDevState } from "./prepare-dev-state";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const binPath = join(repoRoot, "bin", "cairn.mjs");
+const testNodeEnv = process.env.NODE_ENV ?? "test";
 
 type CliResult = { code: number | null; stdout: string; stderr: string };
 
 function runCli(
   cwd: string,
   args: string[],
-  extraEnv: NodeJS.ProcessEnv = {},
+  extraEnv: NodeJS.ProcessEnv = {
+    NODE_ENV: testNodeEnv,
+  },
 ): Promise<CliResult> {
   return new Promise((resolveResult, reject) => {
     const env: NodeJS.ProcessEnv = { ...process.env, ...extraEnv };
@@ -249,6 +252,7 @@ describe("CLI safety", () => {
     const root = mkdtempSync(join(tmpdir(), "cairn-cli-ignore-home-"));
     roots.push(decoy, root);
     const result = await runCli(root, ["init", "--project"], {
+      NODE_ENV: testNodeEnv,
       CAIRN_HOME: decoy,
     });
     assert.equal(result.code, 0, result.stderr);

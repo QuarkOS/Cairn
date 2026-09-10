@@ -5,8 +5,8 @@
  * product tsconfig.json. Reads (and writes) of the repo-root tsconfig are
  * redirected to VERIFY_CAIRN_TSCONFIG.
  *
- * Product gap: cli/main.test.ts fails Next's ProcessEnv.NODE_ENV typing.
- * Do not "fix" that here — exclude tests from the verify build instead.
+ * Verify typecheck excludes tests so Next does not spend time on them.
+ * Product `tsconfig.json` still includes tests; keep this overlay skill-owned.
  */
 const fs = require("fs");
 const path = require("path");
