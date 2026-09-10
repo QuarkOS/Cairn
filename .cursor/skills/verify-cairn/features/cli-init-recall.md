@@ -6,7 +6,7 @@
 - `node bin/cairn.mjs init --project --demo` — same, plus sample beliefs, but only when the store is empty. Refuses (exits non-zero, leaves existing facts) if the store already has facts, retractions, or stamps.
 - `node bin/cairn.mjs recall` — print live beliefs JSON to stdout
 - `CAIRN_HOME` / `CAIRN_DB_PATH` env overrides for **recall**, **dev**, and **start** (not for `init --project`). `dev`/`start` pin `CAIRN_HOME` from the directory you invoked the command in.
-- This PR's overlay: empty string and the literal `${CAIRN_HOME}` are treated as unset, so recall/dev/start/MCP fall through to native resolution (`CAIRN_HOME` if usable, else `./.cairn` if present, else `~/.cairn`).
+- Empty string and the literal `${CAIRN_HOME}` are treated as unset, so recall/dev/start/MCP fall through to native resolution (`CAIRN_HOME` if usable, else `./.cairn` if present, else `~/.cairn`).
 
 ## How to get to it (user POV)
 
@@ -44,6 +44,6 @@ Or `../scripts/drive-cli-recall.sh`. Exit code 0 and a positive belief count pro
 - `init --project` always uses `<cwd>/.cairn` and **ignores** `CAIRN_HOME`. Do not set `CAIRN_HOME` expecting init to follow it.
 - `init` without `--project` writes to `~/.cairn`, or to `CAIRN_HOME` when that env is a usable path.
 - `--demo` seeds only an empty store. Re-running `init --project --demo` on an existing store throws `Refusing --demo because the Cairn store is not empty; existing data was preserved`.
-- Empty `CAIRN_HOME` and the unsubstituted literal `${CAIRN_HOME}` are treated as unset (`resolveCairnPaths`). That guard ships in `@quarkos/cairn@0.4.6`.
+- Empty `CAIRN_HOME` and the unsubstituted literal `${CAIRN_HOME}` are treated as unset (`resolveCairnPaths`). That guard shipped in `@quarkos/cairn@0.4.6` and remains in `0.5.0`.
 - `recall` does not start the desk; it reads SQLite directly.
 - Do not use bare `npx cairn` (that is an unrelated npm package). Prefer `npx --yes @quarkos/cairn` or in-repo `node bin/cairn.mjs`.

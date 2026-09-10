@@ -11,7 +11,7 @@
 ## How to get to it (user POV)
 
 1. Start Cairn (`cairn dev` or verify `launch.sh`)
-2. Click **Canvas** in the header nav
+2. Open `http://localhost:<port>/` then click **Canvas** in the header nav (`cairn dev`: do not use `127.0.0.1` — JS chunks may 403)
 3. Drag agent pods to arrange the board
 
 ## Driving it with scripts
@@ -30,3 +30,4 @@ Checks HTML contains "Agent canvas", PUT/GET layout API round-trip.
 - `cairn dev` pins `CAIRN_HOME` to the directory you invoked it from (project `.cairn` after `init --project`).
 - Canvas uses production build in verify mode (port 14721).
 - Empty canvas when no beliefs exist yet. Verify launch uses `--demo` so pods appear.
+- `cairn dev` desk/canvas UI: open `http://localhost:<port>/canvas`. `http://127.0.0.1:<port>/` may 403 `/_next` chunks (`allowedDevOrigins`).

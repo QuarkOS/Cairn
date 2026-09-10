@@ -19,8 +19,14 @@ CAIRN_DB_PATH="$CAIRN_HOME/cairn.db"
 export CAIRN_HOME CAIRN_DB_PATH
 
 cd "$REPO_ROOT"
-if ! npm run build >/dev/null 2>&1; then
-  echo "Production build failed; fix before verifying." >&2
+# Stock `npm run build` typechecks **/*.ts including tests. cli/main.test.ts
+# has a pre-existing ProcessEnv/NODE_ENV error (product gap). Use the
+# skill-owned build so the verify instance compiles without touching
+# product tsconfig.json / next.config.* / package.json.
+BUILD_LOG="$RUN_DIR/build.log"
+if ! "$SCRIPT_DIR/build-desk.sh" >"$BUILD_LOG" 2>&1; then
+  echo "Production build failed; fix before verifying. Last lines:" >&2
+  tail -n 40 "$BUILD_LOG" >&2
   exit 1
 fi
 
