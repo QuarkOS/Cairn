@@ -25,3 +25,4 @@ Or manually read `port` from `../scratch/instance.json` and POST/GET as document
 - `onConflict: fail` is safest for proofs — avoids silently superseding seed data.
 - `POST /api/cairn/reset` re-seeds demo data; do not use it as proof of assert behavior.
 - Assert responses use `kind: asserted`; rejections use `kind: rejected` with `error.remedy`.
+- Validity kinds are `until-superseded`, `ttl` (`staleAfterSeconds`), and `expires` (`at`). Demo seed uses those three. Inbound `validity.kind: "reverify"` is accepted for one minor and stored as `ttl`; `command` is dropped and never executed. Do not expect live `reverify` rows.
